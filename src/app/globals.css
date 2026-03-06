@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply bg-surface-50 text-surface-900 antialiased;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-surface-200 rounded-xl;
+  }
+
+  .gradient-brand {
+    @apply bg-gradient-to-br from-brand-600 to-brand-800;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-600 to-brand-400 bg-clip-text text-transparent;
+  }
+}
+
+/* Email preview frame styling */
+.email-preview-frame {
+  border: none;
+  width: 100%;
+  background: white;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-400;
+}
