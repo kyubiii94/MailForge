@@ -143,6 +143,7 @@ export default function CampaignTextPage() {
         body: JSON.stringify({
           draft,
           brandDnaId,
+          campaignId,
           campaignGoal,
           desiredCTA,
           targetLength,
@@ -153,12 +154,8 @@ export default function CampaignTextPage() {
       const data = await res.json();
 
       // Set the improved content in the editor
-      setSubject(data.subject);
-      setPreheader(data.preheader);
-      setHeadline(data.headline);
-      setBody(data.body);
-      setCtaText(data.ctaText);
-      setTextContent(data);
+      loadTextContent(data);
+      fetchVersions();
     } catch {
       setError('Erreur lors de l\'amélioration. Vérifiez votre clé API Anthropic.');
     } finally {

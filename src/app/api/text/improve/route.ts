@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { draft, brandDnaId, campaignGoal, desiredCTA, targetLength, tone } = parsed.data;
+    const { draft, brandDnaId, campaignId, campaignGoal, desiredCTA, targetLength, tone } = parsed.data;
 
     // Fetch brand DNA
     const brandDNA = db.getBrandDNA(brandDnaId);
@@ -36,13 +36,23 @@ export async function POST(request: NextRequest) {
       tone,
     });
 
-    return NextResponse.json({
+    // Save AI-generated text to database
+    const existingVersions = db.getTextContentsByCampaign(campaignId);
+    const version = existingVersions.length + 1;
+
+    const textContent = db.createTextContent({
+      campaignId,
+      version,
       subject: improved.subject,
       preheader: improved.preheader,
       headline: improved.headline,
       body: improved.body,
       ctaText: improved.ctaText,
+      ctaUrl: '',
+      sourceType: 'ai',
     });
+
+    return NextResponse.json(textContent, { status: 201 });
   } catch (error) {
     console.error('Text improvement error:', error);
     return NextResponse.json(

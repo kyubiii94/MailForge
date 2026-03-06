@@ -48,6 +48,7 @@ export const updateBrandDNASchema = z.object({
 export const improveTextSchema = z.object({
   draft: z.string().min(1, 'Draft text is required'),
   brandDnaId: z.string().uuid(),
+  campaignId: z.string().uuid(),
   campaignGoal: z.string().min(1, 'Campaign goal is required'),
   desiredCTA: z.string().optional().default(''),
   targetLength: z.number().min(50).max(2000).optional().default(300),

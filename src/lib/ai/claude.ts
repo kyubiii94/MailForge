@@ -2,10 +2,24 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { BrandDNA, EditorialTone } from '@/types';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
 const MODEL = 'claude-sonnet-4-20250514';
+
+/**
+ * Extract JSON from Claude's response, handling markdown code fences.
+ */
+function extractJSON(text: string): string {
+  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const cleaned = fenceMatch ? fenceMatch[1].trim() : text;
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('Failed to parse Claude response as JSON');
+  }
+  return jsonMatch[0];
+}
 
 /**
  * Analyze editorial tone from website text content using Claude AI.
@@ -45,12 +59,7 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
     throw new Error('Unexpected response type from Claude');
   }
 
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Failed to parse Claude response as JSON');
-  }
-
-  return JSON.parse(jsonMatch[0]) as EditorialTone;
+  return JSON.parse(extractJSON(content.text)) as EditorialTone;
 }
 
 /**
@@ -115,12 +124,7 @@ Réponds UNIQUEMENT en JSON valide avec cette structure :
     throw new Error('Unexpected response type from Claude');
   }
 
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Failed to parse Claude response as JSON');
-  }
-
-  return JSON.parse(jsonMatch[0]);
+  return JSON.parse(extractJSON(content.text));
 }
 
 /**
@@ -157,12 +161,7 @@ Réponds UNIQUEMENT en JSON valide :
     throw new Error('Unexpected response type from Claude');
   }
 
-  const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Failed to parse Claude response as JSON');
-  }
-
-  return JSON.parse(jsonMatch[0]);
+  return JSON.parse(extractJSON(content.text));
 }
 
 /**
