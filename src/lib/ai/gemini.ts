@@ -174,7 +174,7 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
 
 export async function generateCampaignDNA(
   brief: CampaignBrief,
-  crawledData?: { colors?: string; fonts?: string; textContent?: string }
+  crawledData?: { colors?: string; fonts?: string; textContent?: string; title?: string; metaDescription?: string }
 ): Promise<CampaignDNA> {
   const prompt = buildDNAPrompt(brief, crawledData);
   return generateJson<CampaignDNA>(prompt, 4096);

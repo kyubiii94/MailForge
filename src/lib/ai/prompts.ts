@@ -8,23 +8,32 @@ function getAmbianceHint(ambiance: string): string {
   return key ? `\nVocabulaire design suggéré : ${AMBIANCE_VOCABULARY[key]}` : '';
 }
 
-export function buildDNAPrompt(brief: CampaignBrief, crawledData?: { colors?: string; fonts?: string; textContent?: string }): string {
-  const ambianceHint = getAmbianceHint(brief.ambiance);
+export function buildDNAPrompt(brief: CampaignBrief, crawledData?: { colors?: string; fonts?: string; textContent?: string; title?: string; metaDescription?: string }): string {
+  const ambianceHint = brief.ambiance ? getAmbianceHint(brief.ambiance) : '';
+
+  const isUrlMode = brief.mode === 'precise' && crawledData;
+
   const crawlContext = crawledData
-    ? `\nDonnées extraites du site web (${brief.siteUrl}) :\n- Couleurs trouvées : ${crawledData.colors || 'aucune'}\n- Polices trouvées : ${crawledData.fonts || 'aucune'}\n- Extraits de texte : ${(crawledData.textContent || '').slice(0, 3000)}`
+    ? `\nDonnées extraites du site web (${brief.siteUrl}) :\n- Titre du site : ${crawledData.title || 'inconnu'}\n- Description meta : ${crawledData.metaDescription || 'aucune'}\n- Couleurs trouvées : ${crawledData.colors || 'aucune'}\n- Polices trouvées : ${crawledData.fonts || 'aucune'}\n- Extraits de texte du site :\n${(crawledData.textContent || '').slice(0, 5000)}`
+    : '';
+
+  const modeInstruction = isUrlMode
+    ? `IMPORTANT : Le brief provient d'une analyse automatique d'un site web. Tu DOIS déduire le nom de la marque, le secteur, le positionnement, le ton de voix, l'audience cible et l'ambiance DIRECTEMENT à partir des données extraites du site (titre, texte, couleurs, polices). Ne laisse aucun champ vide ou générique — analyse le contenu du site pour les remplir de manière concrète et précise.`
     : '';
 
   return `Tu es un expert en stratégie de marque et email marketing.
-À partir du brief suivant, génère un ADN de campagne newsletter structuré en 6 points.
+À partir ${isUrlMode ? 'de l\'analyse du site web suivant' : 'du brief suivant'}, génère un ADN de campagne newsletter structuré en 6 points.
 
-BRIEF :
+${modeInstruction}
+
+${isUrlMode ? `URL ANALYSÉE : ${brief.siteUrl}` : `BRIEF :
 - Marque : ${brief.brand}
 - Secteur : ${brief.sector}
 - Positionnement : ${brief.positioning}
 - Objectif de campagne : ${brief.objective}
 - Audience cible : ${brief.audience}
 - Ambiance / tone of voice : ${brief.ambiance}${ambianceHint}
-- Palette souhaitée : ${brief.palette}
+- Palette souhaitée : ${brief.palette}`}
 ${brief.constraints ? `- Contraintes : ${brief.constraints}` : ''}
 ${brief.extraContent ? `- Contenu additionnel : ${brief.extraContent}` : ''}
 ${crawlContext}

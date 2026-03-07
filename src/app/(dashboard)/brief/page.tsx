@@ -31,22 +31,24 @@ export default function BriefPage() {
     setIsLoading(true);
 
     try {
+      const payload = mode === 'precise'
+        ? { mode, siteUrl }
+        : {
+            mode,
+            brand,
+            sector,
+            positioning,
+            objective,
+            audience,
+            ambiance,
+            palette,
+            constraints: constraints || undefined,
+          };
+
       const res = await fetch('/api/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode,
-          brand,
-          sector,
-          positioning,
-          objective,
-          audience,
-          ambiance,
-          palette,
-          siteUrl: mode === 'precise' ? siteUrl : undefined,
-          extraContent: extraContent || undefined,
-          constraints: constraints || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -97,110 +99,109 @@ export default function BriefPage() {
               : 'border-surface-200 hover:border-surface-300'
           }`}
         >
-          <div className="text-2xl mb-2">🎨</div>
-          <div className="font-semibold text-surface-900">J&apos;ai un branding</div>
+          <div className="text-2xl mb-2">🌐</div>
+          <div className="font-semibold text-surface-900">J&apos;ai un site web</div>
           <p className="text-sm text-surface-500 mt-1">
-            URL du site + éléments de marque
+            Analyse automatique depuis une URL
           </p>
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card variant="elevated" padding="lg">
-          <h2 className="text-lg font-semibold text-surface-900 mb-6">
-            {mode === 'vague' ? 'Décrivez votre projet' : 'Vos éléments de marque'}
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4">
+        {mode === 'precise' ? (
+          <Card variant="elevated" padding="lg">
+            <h2 className="text-lg font-semibold text-surface-900 mb-2">Analyse de site web</h2>
+            <p className="text-sm text-surface-500 mb-6">
+              Entrez l&apos;URL de votre site. L&apos;IA analysera automatiquement les couleurs, polices, ton éditorial et contenu pour construire l&apos;ADN de votre campagne.
+            </p>
             <Input
-              label="Nom de la marque *"
-              placeholder="Ex: Maison Lumière"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
+              label="URL du site web *"
+              type="url"
+              placeholder="https://www.example.com"
+              value={siteUrl}
+              onChange={(e) => setSiteUrl(e.target.value)}
               required
             />
-            <Input
-              label="Secteur d'activité"
-              placeholder="Ex: Mode, Tech, Food, Beauté..."
-              value={sector}
-              onChange={(e) => setSector(e.target.value)}
-            />
-          </div>
+            <div className="mt-4 p-3 bg-surface-50 rounded-lg">
+              <p className="text-xs text-surface-500">
+                <span className="font-medium text-surface-600">Ce qui sera analysé :</span> palette de couleurs, typographies, ton éditorial, mots-clés, positionnement, secteur d&apos;activité — le tout extrait directement depuis votre site.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <Card variant="elevated" padding="lg">
+            <h2 className="text-lg font-semibold text-surface-900 mb-6">Décrivez votre projet</h2>
 
-          <div className="mt-4">
-            <Input
-              label="Positionnement"
-              placeholder="Ex: Marque premium de cosmétiques naturels"
-              value={positioning}
-              onChange={(e) => setPositioning(e.target.value)}
-            />
-          </div>
-
-          <div className="mt-4">
-            <Input
-              label="Objectif de la campagne *"
-              placeholder="Ex: Lancement d'une nouvelle collection, promotion de saison..."
-              value={objective}
-              onChange={(e) => setObjective(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="mt-4">
-            <Input
-              label="Audience cible"
-              placeholder="Ex: Femmes 25-45 ans, urbaines, sensibles au bio"
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <Input
-              label="Ambiance / Tone of voice"
-              placeholder="Ex: Luxe éditorial, fun et coloré, minimaliste..."
-              value={ambiance}
-              onChange={(e) => setAmbiance(e.target.value)}
-            />
-            <Input
-              label="Palette de couleurs souhaitée"
-              placeholder="Ex: Tons chauds, #1A1A1A + #D4A574..."
-              value={palette}
-              onChange={(e) => setPalette(e.target.value)}
-            />
-          </div>
-
-          {mode === 'precise' && (
-            <div className="mt-6 pt-6 border-t border-surface-200 space-y-4">
-              <h3 className="font-medium text-surface-800">Éléments de référence</h3>
+            <div className="grid grid-cols-2 gap-4">
               <Input
-                label="URL du site web"
-                type="url"
-                placeholder="https://www.example.com"
-                value={siteUrl}
-                onChange={(e) => setSiteUrl(e.target.value)}
-                hint="Le site sera analysé pour extraire couleurs, polices et ton"
+                label="Nom de la marque *"
+                placeholder="Ex: Maison Lumière"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                required
               />
-              <Textarea
-                label="Contenu / Copy"
-                placeholder="Textes, CTA, offres, produits à mettre en avant..."
-                value={extraContent}
-                onChange={(e) => setExtraContent(e.target.value)}
-                hint="Optionnel : ajoutez du contenu à intégrer dans les newsletters"
+              <Input
+                label="Secteur d'activité"
+                placeholder="Ex: Mode, Tech, Food, Beauté..."
+                value={sector}
+                onChange={(e) => setSector(e.target.value)}
               />
             </div>
-          )}
 
-          <div className="mt-4">
-            <Textarea
-              label="Contraintes techniques"
-              placeholder="Ex: ESP utilisé (Mailchimp, SendGrid...), dark mode requis, accessibilité WCAG..."
-              value={constraints}
-              onChange={(e) => setConstraints(e.target.value)}
-              hint="Optionnel"
-            />
-          </div>
-        </Card>
+            <div className="mt-4">
+              <Input
+                label="Positionnement"
+                placeholder="Ex: Marque premium de cosmétiques naturels"
+                value={positioning}
+                onChange={(e) => setPositioning(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-4">
+              <Input
+                label="Objectif de la campagne *"
+                placeholder="Ex: Lancement d'une nouvelle collection, promotion de saison..."
+                value={objective}
+                onChange={(e) => setObjective(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="mt-4">
+              <Input
+                label="Audience cible"
+                placeholder="Ex: Femmes 25-45 ans, urbaines, sensibles au bio"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <Input
+                label="Ambiance / Tone of voice"
+                placeholder="Ex: Luxe éditorial, fun et coloré, minimaliste..."
+                value={ambiance}
+                onChange={(e) => setAmbiance(e.target.value)}
+              />
+              <Input
+                label="Palette de couleurs souhaitée"
+                placeholder="Ex: Tons chauds, #1A1A1A + #D4A574..."
+                value={palette}
+                onChange={(e) => setPalette(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-4">
+              <Textarea
+                label="Contraintes techniques"
+                placeholder="Ex: ESP utilisé (Mailchimp, SendGrid...), dark mode requis, accessibilité WCAG..."
+                value={constraints}
+                onChange={(e) => setConstraints(e.target.value)}
+                hint="Optionnel"
+              />
+            </div>
+          </Card>
+        )}
 
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -210,7 +211,10 @@ export default function BriefPage() {
 
         <div className="flex justify-end">
           <Button type="submit" size="lg" isLoading={isLoading}>
-            {isLoading ? 'Génération de l\'ADN...' : 'Générer l\'ADN de campagne'}
+            {isLoading
+              ? (mode === 'precise' ? 'Analyse du site en cours...' : 'Génération de l\'ADN...')
+              : (mode === 'precise' ? 'Analyser le site' : 'Générer l\'ADN de campagne')
+            }
           </Button>
         </div>
       </form>
