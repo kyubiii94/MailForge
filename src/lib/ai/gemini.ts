@@ -1,25 +1,51 @@
 import { GoogleGenAI } from '@google/genai';
 import type { BrandDNA, EditorialTone } from '@/types';
 
-const apiKey = process.env.GEMINI_API_KEY?.trim() ?? '';
-const ai = new GoogleGenAI({ apiKey });
+const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
 
-// Ordre de tentative : modèles les plus disponibles sur l’API Google AI (aistudio.google.com)
-const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
+let _client: GoogleGenAI | null = null;
 
-function isModelError(err: unknown): boolean {
+function getClient(): GoogleGenAI {
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key) throw new Error('GEMINI_API_KEY est vide ou absente');
+  if (!_client) {
+    _client = new GoogleGenAI({ apiKey: key });
+  }
+  return _client;
+}
+
+function getErrorCode(err: unknown): number | undefined {
+  const e = err as { status?: number; statusCode?: number; code?: number; httpCode?: number } | undefined;
+  if (typeof e?.status === 'number') return e.status;
+  if (typeof e?.statusCode === 'number') return e.statusCode;
+  if (typeof e?.code === 'number') return e.code;
+  if (typeof e?.httpCode === 'number') return e.httpCode;
+
+  const msg = err instanceof Error ? err.message : String(err);
+  const codeMatch = msg.match(/"code"\s*:\s*(\d{3})/);
+  if (codeMatch) return parseInt(codeMatch[1], 10);
+  return undefined;
+}
+
+function isModelNotFoundError(err: unknown): boolean {
+  const code = getErrorCode(err);
+  if (code === 404) return true;
+
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return (
-    msg.includes('model') &&
-    (msg.includes('not found') || msg.includes('unknown') || msg.includes('invalid') || msg.includes('unavailable') || msg.includes('404'))
-  );
+  if (msg.includes('is not found') || msg.includes('model not found') || msg.includes('models/') && msg.includes('not found')) {
+    return true;
+  }
+  return false;
 }
 
 async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
+  const client = getClient();
   let lastError: unknown;
+
   for (const model of MODELS) {
     try {
-      const response = await ai.models.generateContent({
+      console.log(`[Gemini] Trying model: ${model}`);
+      const response = await client.models.generateContent({
         model,
         contents: prompt,
         config: { maxOutputTokens: maxTokens },
@@ -30,10 +56,18 @@ async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
         text = response.candidates[0].content.parts[0].text;
       }
       if (!text) throw new Error('Réponse vide de Gemini');
+      console.log(`[Gemini] Success with model ${model} (${text.length} chars)`);
       return text;
     } catch (err) {
+      const code = getErrorCode(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Gemini] Model ${model} failed (HTTP ${code ?? '?'}):`, msg.slice(0, 300));
       lastError = err;
-      if (isModelError(err)) continue; // essayer le modèle suivant
+
+      if (isModelNotFoundError(err)) {
+        console.warn(`[Gemini] Model ${model} not found, trying next...`);
+        continue;
+      }
       throw err;
     }
   }
@@ -41,7 +75,31 @@ async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
 }
 
 /**
- * Analyse le ton éditorial à partir du texte d'un site (même contrat que Claude).
+ * Test minimal pour vérifier que la clé API fonctionne.
+ */
+export async function testConnection(): Promise<{ ok: boolean; model: string; error?: string }> {
+  const client = getClient();
+  for (const model of MODELS) {
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: 'Réponds uniquement "ok".',
+        config: { maxOutputTokens: 10 },
+      }) as { text?: string };
+      if (response.text) {
+        return { ok: true, model };
+      }
+    } catch (err) {
+      if (isModelNotFoundError(err)) continue;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, model, error: msg.slice(0, 200) };
+    }
+  }
+  return { ok: false, model: MODELS.join(', '), error: 'Aucun modèle accessible' };
+}
+
+/**
+ * Analyse le ton éditorial à partir du texte d'un site.
  */
 export async function analyzeEditorialTone(textContent: string): Promise<EditorialTone> {
   const prompt = `Tu es un expert en analyse de communication de marque.
@@ -68,7 +126,7 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
 }
 
 /**
- * Extrait mots-clés, slogans et champs lexicaux (même contrat que Claude).
+ * Extrait mots-clés, slogans et champs lexicaux.
  */
 export async function extractKeywords(
   textContent: string
@@ -94,7 +152,7 @@ Réponds UNIQUEMENT en JSON valide :
 }
 
 /**
- * Améliore un brouillon d'email selon l'ADN de marque (même contrat que Claude).
+ * Améliore un brouillon d'email selon l'ADN de marque.
  */
 export async function improveEmailDraft(params: {
   draft: string;
@@ -147,7 +205,7 @@ Réponds UNIQUEMENT en JSON valide avec cette structure :
 }
 
 /**
- * Génère le design email en MJML à partir de l'ADN et du contenu (même contrat que Claude).
+ * Génère le design email en MJML à partir de l'ADN et du contenu.
  */
 export async function generateEmailDesign(params: {
   brandDNA: BrandDNA;

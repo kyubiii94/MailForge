@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'GEMINI_API_KEY non configurée.',
-          hint: 'Ajoutez GEMINI_API_KEY=votre_cle dans le fichier .env à la racine du projet (sans espace autour du =). Puis redémarrez le serveur (arrêtez puis relancez npm run dev). Clé : aistudio.google.com/apikey',
+          hint: 'Ajoutez GEMINI_API_KEY dans les Environment Variables de Vercel (Settings → Environment Variables), puis redéployez. En local : ajoutez GEMINI_API_KEY=votre_cle dans .env et relancez npm run dev. Clé : aistudio.google.com/apikey',
         },
         { status: 503 }
       );
@@ -96,12 +96,11 @@ export async function POST(request: NextRequest) {
     const colors = extractColorPalette(pages);
     const visualStyle = analyzeVisualStyleFromPages(pages);
 
-    // Step 3: Analyze text content with Claude AI
+    // Step 3: Analyze text content with Gemini AI
     let allText = pages.map((p) => p.textContent).join('\n\n').trim();
 
     if (allText.length < 100) {
       warnings.push('Très peu de texte extrait du site. Le site utilise peut-être du rendu JavaScript (SPA) non supporté par le crawler.');
-      // Enrichir avec titres et meta pour donner du contexte à Claude
       const metaContext = pages
         .map((p) => `[Page: ${p.title || p.url}${p.metaDescription ? ` — ${p.metaDescription}` : ''}]`)
         .join('\n');
@@ -110,9 +109,9 @@ export async function POST(request: NextRequest) {
 
     let editorialTone;
     let keywords;
-    let claudeError: string | null = null;
+    let llmError: string | null = null;
 
-    const runClaude = async () => {
+    const runGemini = async () => {
       return Promise.all([
         analyzeEditorialTone(allText),
         extractKeywords(allText),
@@ -122,28 +121,28 @@ export async function POST(request: NextRequest) {
     try {
       console.log(`[BrandDNA] Calling Gemini for tone + keywords analysis (${allText.length} chars)...`);
       try {
-        [editorialTone, keywords] = await runClaude();
+        [editorialTone, keywords] = await runGemini();
       } catch (firstError) {
         console.warn('[BrandDNA] Gemini first attempt failed, retrying in 2s...', firstError instanceof Error ? firstError.message : firstError);
         await new Promise((r) => setTimeout(r, 2000));
-        [editorialTone, keywords] = await runClaude();
+        [editorialTone, keywords] = await runGemini();
       }
       console.log(`[BrandDNA] Gemini analysis complete: tone=${editorialTone.tone}, ${keywords.keywords.length} keywords`);
     } catch (error) {
       const status = getErrorStatus(error);
       const msg = error instanceof Error ? error.message : String(error);
       console.error('[BrandDNA] Gemini analysis failed:', status ? `HTTP ${status}` : '', msg);
-      claudeError = sanitizeLlmError(error);
+      llmError = sanitizeLlmError(error);
       warnings.push(
-        claudeError
-          ? `L'analyse IA a échoué : ${claudeError}`
-          : 'L\'analyse IA a échoué. Vérifiez GEMINI_API_KEY dans .env et réessayez.'
+        llmError
+          ? `L'analyse IA a échoué : ${llmError}`
+          : 'L\'analyse IA a échoué. Vérifiez GEMINI_API_KEY et réessayez.'
       );
       editorialTone = {
         tone: 'non analysé',
-        style_notes: claudeError
-          ? `L'analyse a échoué : ${claudeError}`
-          : 'L\'analyse du ton éditorial n\'a pas pu être effectuée. Vérifiez GEMINI_API_KEY dans .env.',
+        style_notes: llmError
+          ? `L'analyse a échoué : ${llmError}`
+          : 'L\'analyse du ton éditorial n\'a pas pu être effectuée. Vérifiez GEMINI_API_KEY.',
         formality_level: 5,
         energy_level: 5,
       };

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer', 'mjml'],
+    serverComponentsExternalPackages: ['puppeteer', 'mjml', '@google/genai'],
   },
   images: {
     remotePatterns: [
