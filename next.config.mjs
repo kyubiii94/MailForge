@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['mjml'],
+  experimental: {
+    serverComponentsExternalPackages: ['mjml'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
