@@ -1,0 +1,263 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { TEMPLATE_TYPES } from '@/lib/constants';
+import type { Campaign, NewsletterTemplate } from '@/types';
+
+export default function CampaignPage() {
+  const params = useParams();
+  const router = useRouter();
+  const campaignId = params.id as string;
+
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [templates, setTemplates] = useState<NewsletterTemplate[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<number[]>([1, 2, 3, 4, 8]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationResults, setGenerationResults] = useState<{ templateNumber: number; status: string; error?: string }[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const fetchCampaign = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/campaign/${campaignId}`);
+      if (!res.ok) throw new Error('Campagne introuvable');
+      const data = await res.json();
+      setCampaign(data.campaign);
+      setTemplates(data.templates || []);
+      if (data.campaign.selectedTemplateTypes?.length > 0) {
+        setSelectedTypes(data.campaign.selectedTemplateTypes);
+      }
+    } catch {
+      setError('Impossible de charger la campagne');
+    } finally {
+      setLoading(false);
+    }
+  }, [campaignId]);
+
+  useEffect(() => { fetchCampaign(); }, [fetchCampaign]);
+
+  function toggleTemplate(num: number) {
+    setSelectedTypes((prev) =>
+      prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]
+    );
+  }
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setGenerationResults([]);
+    setError('');
+
+    try {
+      const typesToGenerate = selectedTypes.includes(8) ? selectedTypes : [...selectedTypes, 8];
+
+      const res = await fetch(`/api/campaign/${campaignId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedTypes: typesToGenerate }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Erreur lors de la génération');
+        return;
+      }
+
+      setGenerationResults(data.results || []);
+      setTemplates(data.templates || []);
+      await fetchCampaign();
+    } catch {
+      setError('Erreur de connexion au serveur');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!campaign) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-surface-500">Campagne introuvable</p>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/brief')}>
+          Créer une campagne
+        </Button>
+      </div>
+    );
+  }
+
+  const dna = campaign.dna;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-surface-900">{campaign.name}</h1>
+          <p className="mt-1 text-surface-500">
+            Campagne {campaign.status === 'generated' ? 'générée' : campaign.status === 'generating' ? 'en cours...' : 'prête'}
+          </p>
+        </div>
+        <Badge variant={campaign.status === 'generated' ? 'success' : campaign.status === 'generating' ? 'warning' : 'default'}>
+          {campaign.status === 'generated' ? 'Générée' : campaign.status === 'generating' ? 'En cours' : 'ADN prêt'}
+        </Badge>
+      </div>
+
+      {/* DNA Summary */}
+      <Card variant="elevated" padding="lg">
+        <h2 className="text-lg font-semibold text-surface-900 mb-4">ADN de campagne</h2>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Marque</h3>
+            <p className="mt-1 font-medium text-surface-900">{dna.marque.name}</p>
+            <p className="text-sm text-surface-600">{dna.marque.sector} — {dna.marque.positioning}</p>
+            <p className="text-sm text-surface-500 mt-1 italic">{dna.marque.toneOfVoice}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Objectif</h3>
+            <p className="mt-1 text-surface-800">{dna.objectif}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Audience</h3>
+            <p className="mt-1 text-surface-800">{dna.audience}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Palette</h3>
+            <div className="flex gap-2 mt-1">
+              {Object.entries(dna.palette).map(([name, color]) => (
+                <div key={name} className="text-center">
+                  <div
+                    className="w-10 h-10 rounded-lg border border-surface-200 shadow-sm"
+                    style={{ backgroundColor: color }}
+                    title={`${name}: ${color}`}
+                  />
+                  <span className="text-xs text-surface-400 mt-0.5 block">{name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Design System</h3>
+            <p className="mt-1 text-sm text-surface-600">Police : {dna.designSystem.primaryFont}</p>
+            <p className="text-sm text-surface-600">CTA : {dna.designSystem.ctaStyle}</p>
+            <p className="text-sm text-surface-600">Border-radius : {dna.designSystem.borderRadius}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Contraintes</h3>
+            <p className="mt-1 text-sm text-surface-600">{dna.contraintes}</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Template Selection */}
+      <Card variant="elevated" padding="lg">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-semibold text-surface-900">Templates à générer</h2>
+            <p className="text-sm text-surface-500 mt-1">
+              Sélectionnez les types de newsletters à créer. Le Master Template (#8) est toujours inclus.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            onClick={handleGenerate}
+            isLoading={isGenerating}
+            disabled={selectedTypes.length === 0 || isGenerating}
+          >
+            {isGenerating ? 'Génération en cours...' : `Générer ${selectedTypes.length} template${selectedTypes.length > 1 ? 's' : ''}`}
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {TEMPLATE_TYPES.map((t) => {
+            const isSelected = selectedTypes.includes(t.number);
+            const generated = templates.find((tpl) => tpl.templateNumber === t.number);
+            const result = generationResults.find((r) => r.templateNumber === t.number);
+
+            return (
+              <button
+                key={t.number}
+                type="button"
+                onClick={() => {
+                  if (generated) {
+                    router.push(`/campaign/${campaignId}/template/${t.number}`);
+                  } else {
+                    toggleTemplate(t.number);
+                  }
+                }}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  generated
+                    ? 'border-brand-500 bg-brand-50 cursor-pointer hover:bg-brand-100'
+                    : isSelected
+                    ? 'border-brand-400 bg-brand-50/50'
+                    : 'border-surface-200 hover:border-surface-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">{t.icon}</span>
+                  <div className="flex items-center gap-2">
+                    {generated && (
+                      <Badge variant="success">Généré</Badge>
+                    )}
+                    {result?.status === 'error' && (
+                      <Badge variant="danger">Erreur</Badge>
+                    )}
+                    {!generated && (
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        isSelected ? 'border-brand-600 bg-brand-600' : 'border-surface-300'
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className="text-xs text-surface-400 font-mono">#{t.number}</span>
+                  <p className="font-medium text-surface-900">{t.type}</p>
+                  <p className="text-xs text-surface-500 mt-0.5">{t.objective}</p>
+                </div>
+                {generated && (
+                  <p className="text-xs text-brand-600 mt-2 font-medium">
+                    Cliquer pour voir le template →
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      {isGenerating && (
+        <Card variant="bordered" padding="md">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin h-5 w-5 border-2 border-brand-600 border-t-transparent rounded-full" />
+            <div>
+              <p className="font-medium text-surface-900">Génération en cours...</p>
+              <p className="text-sm text-surface-500">
+                Chaque template est généré individuellement par l&apos;IA. Cela peut prendre quelques minutes.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}

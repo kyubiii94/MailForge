@@ -2,103 +2,52 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Campaign, BrandDNA } from '@/types';
+import type { Campaign } from '@/types';
 import { formatDate } from '@/lib/utils';
 import {
   FolderOpen,
   Plus,
   ArrowRight,
   Mail,
-  AlertCircle,
 } from 'lucide-react';
 
-const DEFAULT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
-
-const statusMap = {
-  draft: { label: 'Brouillon', variant: 'default' as const },
-  generating: { label: 'Génération', variant: 'warning' as const },
-  review: { label: 'En revue', variant: 'info' as const },
-  exported: { label: 'Exporté', variant: 'success' as const },
+const statusMap: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'info' }> = {
+  draft: { label: 'Brouillon', variant: 'default' },
+  dna_ready: { label: 'ADN prêt', variant: 'info' },
+  generating: { label: 'Génération...', variant: 'warning' },
+  generated: { label: 'Générée', variant: 'success' },
+  exported: { label: 'Exportée', variant: 'success' },
 };
 
 export default function CampaignsPage() {
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [brandDNA, setBrandDNA] = useState<BrandDNA | null>(null);
-  const [newCampaignName, setNewCampaignName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCampaigns();
-    fetchBrandDNA();
   }, []);
 
   const fetchCampaigns = async () => {
     try {
-      const res = await fetch(`/api/campaigns?workspaceId=${DEFAULT_WORKSPACE_ID}`);
+      const res = await fetch('/api/campaigns');
       if (res.ok) {
         const data = await res.json();
-        setCampaigns(data);
-      }
-    } catch {
-      // Silently fail for now
-    }
-  };
-
-  const fetchBrandDNA = async () => {
-    try {
-      const res = await fetch(`/api/brand-dna?workspaceId=${DEFAULT_WORKSPACE_ID}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBrandDNA(data);
+        setCampaigns(data.campaigns || []);
       }
     } catch {
       // Silently fail
-    }
-  };
-
-  const handleCreateCampaign = async () => {
-    if (!newCampaignName.trim()) return;
-    if (!brandDNA) {
-      setError('Veuillez d\'abord analyser l\'ADN de votre marque.');
-      return;
-    }
-
-    setIsCreating(true);
-    setError('');
-
-    try {
-      const res = await fetch('/api/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId: DEFAULT_WORKSPACE_ID,
-          brandDnaId: brandDNA.id,
-          name: newCampaignName.trim(),
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to create campaign');
-
-      const campaign = await res.json();
-      setCampaigns((prev) => [campaign, ...prev]);
-      setNewCampaignName('');
-      setShowCreateForm(false);
-    } catch {
-      setError('Erreur lors de la création de la campagne.');
     } finally {
-      setIsCreating(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
@@ -106,75 +55,40 @@ export default function CampaignsPage() {
             Campagnes
           </h1>
           <p className="text-surface-500 mt-1">
-            Gérez vos campagnes email marketing.
+            Vos campagnes newsletter générées par IA.
           </p>
         </div>
-        <Button onClick={() => setShowCreateForm(true)}>
+        <Button onClick={() => router.push('/brief')}>
           <Plus className="w-4 h-4" />
           Nouvelle Campagne
         </Button>
       </div>
 
-      {/* No Brand DNA warning */}
-      {!brandDNA && (
-        <Card className="border-yellow-200 bg-yellow-50" padding="md">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-yellow-800">ADN de marque requis</p>
-              <p className="text-sm text-yellow-600 mt-1">
-                Analysez d&apos;abord l&apos;ADN de votre marque pour créer des campagnes.
-              </p>
-              <Link href="/brand-dna" className="text-sm font-medium text-yellow-700 underline mt-2 inline-block">
-                Analyser mon site →
-              </Link>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Create form */}
-      {showCreateForm && (
-        <Card variant="elevated" padding="lg">
-          <h2 className="text-lg font-semibold text-surface-900 mb-4">Nouvelle Campagne</h2>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Nom de la campagne (ex: Newsletter Mars 2026)"
-                value={newCampaignName}
-                onChange={(e) => setNewCampaignName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateCampaign()}
-              />
-            </div>
-            <Button onClick={handleCreateCampaign} isLoading={isCreating}>
-              Créer
-            </Button>
-            <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
-              Annuler
-            </Button>
-          </div>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        </Card>
-      )}
-
-      {/* Campaign list */}
-      {campaigns.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full" />
+        </div>
+      ) : campaigns.length === 0 ? (
         <div className="text-center py-16">
           <Mail className="w-12 h-12 text-surface-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-surface-700 mb-2">Aucune campagne</h3>
-          <p className="text-sm text-surface-500">
-            Créez votre première campagne pour commencer.
+          <p className="text-sm text-surface-500 mb-4">
+            Créez votre première campagne en remplissant un brief.
           </p>
+          <Button onClick={() => router.push('/brief')}>
+            <Plus className="w-4 h-4" />
+            Créer une campagne
+          </Button>
         </div>
       ) : (
         <div className="grid gap-4">
           {campaigns.map((campaign) => {
-            const status = statusMap[campaign.status];
+            const status = statusMap[campaign.status] || statusMap.draft;
 
             return (
               <Link
                 key={campaign.id}
-                href={`/campaigns/${campaign.id}/text`}
+                href={`/campaign/${campaign.id}`}
                 className="group"
               >
                 <Card className="hover:shadow-md hover:border-surface-300 transition-all">
@@ -189,6 +103,9 @@ export default function CampaignsPage() {
                         </h3>
                         <p className="text-xs text-surface-400 mt-0.5">
                           Créée le {formatDate(campaign.createdAt)}
+                          {campaign.selectedTemplateTypes?.length > 0 && (
+                            <> — {campaign.selectedTemplateTypes.length} template{campaign.selectedTemplateTypes.length > 1 ? 's' : ''}</>
+                          )}
                         </p>
                       </div>
                     </div>

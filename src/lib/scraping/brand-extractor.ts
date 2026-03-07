@@ -1,5 +1,19 @@
-import type { Typography, ColorPalette, VisualStyle } from '@/types';
+import type { ColorPalette } from '@/types';
 import type { CrawledPage } from './crawler';
+
+interface Typography {
+  families: string[];
+  weights: string[];
+  headingFont: string;
+  bodyFont: string;
+  sizes: { h1: string; h2: string; body: string };
+}
+
+interface VisualStyle {
+  visualStyle: string;
+  imageTypes: string[];
+  textImageRatio: string;
+}
 
 /**
  * Extract typography information from crawled CSS content.

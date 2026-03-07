@@ -1,39 +1,38 @@
-/** Core domain types for MailForge AI */
+/** Core domain types for MailForge — Newsletter Campaign Platform */
 
-export interface Workspace {
-  id: string;
-  name: string;
-  ownerId: string;
-  plan: 'free' | 'pro' | 'enterprise';
-  createdAt: string;
+// ─── Brief ────────────────────────────────────────────────────────────────────
+
+export type BriefMode = 'vague' | 'precise';
+
+export interface CampaignBrief {
+  mode: BriefMode;
+  brand: string;
+  sector: string;
+  positioning: string;
+  objective: string;
+  audience: string;
+  ambiance: string;
+  palette: string;
+  siteUrl?: string;
+  extraContent?: string;
+  constraints?: string;
 }
 
-export interface BrandDNA {
-  id: string;
-  workspaceId: string;
-  siteUrl: string;
-  typography: Typography;
-  colors: ColorPalette;
-  editorialTone: EditorialTone;
-  visualStyle: VisualStyle;
-  keywords: Keywords;
-  isValidated: boolean;
-  warnings?: string[];
-  pagesAnalyzed?: number;
-  createdAt: string;
-  updatedAt: string;
-}
+// ─── Campaign DNA (6 points de la Skill) ──────────────────────────────────────
 
-export interface Typography {
-  families: string[];
-  weights: string[];
-  headingFont: string;
-  bodyFont: string;
-  sizes: {
-    h1: string;
-    h2: string;
-    body: string;
+export interface CampaignDNA {
+  marque: { name: string; sector: string; positioning: string; toneOfVoice: string };
+  objectif: string;
+  audience: string;
+  designSystem: {
+    primaryFont: string;
+    secondaryFont: string;
+    borderRadius: string;
+    spacingSystem: string;
+    ctaStyle: string;
   };
+  palette: ColorPalette;
+  contraintes: string;
 }
 
 export interface ColorPalette {
@@ -44,76 +43,61 @@ export interface ColorPalette {
   text: string;
 }
 
-export interface EditorialTone {
-  tone: string;
-  style_notes: string;
-  formality_level: number;
-  energy_level: number;
-}
+// ─── Campaign ─────────────────────────────────────────────────────────────────
 
-export interface VisualStyle {
-  visualStyle: string;
-  imageTypes: string[];
-  textImageRatio: string;
-}
-
-export interface Keywords {
-  keywords: string[];
-  slogans: string[];
-  lexicalFields: string[];
-}
+export type CampaignStatus = 'draft' | 'dna_ready' | 'generating' | 'generated' | 'exported';
 
 export interface Campaign {
   id: string;
-  workspaceId: string;
-  brandDnaId: string;
   name: string;
-  status: 'draft' | 'generating' | 'review' | 'exported';
-  textSource: 'direct' | 'ai_improved' | 'url_extracted' | null;
-  visualSource: 'uploaded' | 'ai_generated' | 'url_extracted' | null;
-  designMode: 'ai_generated' | 'template_based' | null;
+  brief: CampaignBrief;
+  dna: CampaignDNA;
+  status: CampaignStatus;
+  selectedTemplateTypes: number[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Newsletter Template ──────────────────────────────────────────────────────
+
+export interface LayoutDescription {
+  structure: string;
+  heroSection: string;
+  bodySections: string;
+  ctaSection: string;
+  footer: string;
+}
+
+export interface DesignSpecs {
+  width: string;
+  backgroundColor: string;
+  fontStack: string;
+  headingStyle: string;
+  bodyStyle: string;
+  ctaStyle: string;
+  spacing: string;
+  borderRadius: string;
+  imageTreatment: string;
+}
+
+export interface NewsletterTemplate {
+  id: string;
+  campaignId: string;
+  templateNumber: number;
+  templateType: string;
+  subjectLine: string;
+  previewText: string;
+  layoutDescription: LayoutDescription;
+  designSpecs: DesignSpecs;
+  htmlCode: string;
+  mjmlCode: string;
+  darkModeOverrides: string;
+  accessibilityNotes: string;
+  coherenceTips: string;
   createdAt: string;
 }
 
-export interface TextContent {
-  id: string;
-  campaignId: string;
-  version: number;
-  subject: string;
-  preheader: string;
-  headline: string;
-  body: string;
-  ctaText: string;
-  ctaUrl: string;
-  sourceType: 'manual' | 'ai' | 'scraped';
-  createdAt: string;
-}
-
-export interface Visual {
-  id: string;
-  campaignId: string;
-  fileUrl: string;
-  fileKey: string;
-  originalFilename: string;
-  width: number;
-  height: number;
-  fileSize: number;
-  altText: string;
-  sourceType: 'uploaded' | 'ai_generated' | 'scraped';
-  isSelected: boolean;
-  createdAt: string;
-}
-
-export interface EmailDesign {
-  id: string;
-  campaignId: string;
-  variantNumber: number;
-  htmlContent: string;
-  mjmlSource: string;
-  thumbnailUrl: string;
-  deliverabilityScore: DeliverabilityScore;
-  createdAt: string;
-}
+// ─── Deliverability Score ─────────────────────────────────────────────────────
 
 export interface DeliverabilityScore {
   spamScore: number;
@@ -122,6 +106,19 @@ export interface DeliverabilityScore {
   overallScore: number;
 }
 
-export type TextSourceOption = 'direct' | 'ai_improved' | 'url_extracted';
-export type VisualSourceOption = 'uploaded' | 'ai_generated' | 'url_extracted';
-export type DesignModeOption = 'ai_generated' | 'template_based';
+// ─── Workspace (simplified) ───────────────────────────────────────────────────
+
+export interface Workspace {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+// ─── Template type definitions (constant) ─────────────────────────────────────
+
+export interface TemplateTypeInfo {
+  number: number;
+  type: string;
+  objective: string;
+  icon: string;
+}

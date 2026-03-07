@@ -1,62 +1,39 @@
 import { create } from 'zustand';
-import type { TextContent, Visual, EmailDesign } from '@/types';
+import type { Campaign, NewsletterTemplate } from '@/types';
 
 interface CampaignEditorState {
-  currentCampaignId: string | null;
-  textContent: TextContent | null;
-  textVersions: TextContent[];
-  visuals: Visual[];
-  designs: EmailDesign[];
-  activeStep: 'text' | 'visuals' | 'design';
+  currentCampaign: Campaign | null;
+  templates: NewsletterTemplate[];
   isGenerating: boolean;
 
-  setCurrentCampaign: (id: string) => void;
-  setTextContent: (content: TextContent) => void;
-  setTextVersions: (versions: TextContent[]) => void;
-  setVisuals: (visuals: Visual[]) => void;
-  addVisual: (visual: Visual) => void;
-  removeVisual: (id: string) => void;
-  toggleVisualSelection: (id: string) => void;
-  setDesigns: (designs: EmailDesign[]) => void;
-  setActiveStep: (step: 'text' | 'visuals' | 'design') => void;
+  setCurrentCampaign: (campaign: Campaign | null) => void;
+  setTemplates: (templates: NewsletterTemplate[]) => void;
+  addTemplate: (template: NewsletterTemplate) => void;
+  updateTemplate: (id: string, data: Partial<NewsletterTemplate>) => void;
   setGenerating: (generating: boolean) => void;
   reset: () => void;
 }
 
 export const useCampaignStore = create<CampaignEditorState>((set) => ({
-  currentCampaignId: null,
-  textContent: null,
-  textVersions: [],
-  visuals: [],
-  designs: [],
-  activeStep: 'text',
+  currentCampaign: null,
+  templates: [],
   isGenerating: false,
 
-  setCurrentCampaign: (id) => set({ currentCampaignId: id }),
-  setTextContent: (content) => set({ textContent: content }),
-  setTextVersions: (versions) => set({ textVersions: versions }),
-  setVisuals: (visuals) => set({ visuals }),
-  addVisual: (visual) =>
-    set((state) => ({ visuals: [...state.visuals, visual] })),
-  removeVisual: (id) =>
-    set((state) => ({ visuals: state.visuals.filter((v) => v.id !== id) })),
-  toggleVisualSelection: (id) =>
+  setCurrentCampaign: (campaign) => set({ currentCampaign: campaign }),
+  setTemplates: (templates) => set({ templates }),
+  addTemplate: (template) =>
+    set((state) => ({ templates: [...state.templates, template] })),
+  updateTemplate: (id, data) =>
     set((state) => ({
-      visuals: state.visuals.map((v) =>
-        v.id === id ? { ...v, isSelected: !v.isSelected } : v
+      templates: state.templates.map((t) =>
+        t.id === id ? { ...t, ...data } : t
       ),
     })),
-  setDesigns: (designs) => set({ designs }),
-  setActiveStep: (step) => set({ activeStep: step }),
   setGenerating: (generating) => set({ isGenerating: generating }),
   reset: () =>
     set({
-      currentCampaignId: null,
-      textContent: null,
-      textVersions: [],
-      visuals: [],
-      designs: [],
-      activeStep: 'text',
+      currentCampaign: null,
+      templates: [],
       isGenerating: false,
     }),
 }));
