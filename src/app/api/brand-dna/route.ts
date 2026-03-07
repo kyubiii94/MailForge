@@ -33,8 +33,8 @@ function sanitizeLlmError(error: unknown): string {
     return 'erreur réseau. Vérifiez votre connexion.';
   if (lower.includes('timeout'))
     return 'délai dépassé. Réessayez.';
-  if (lower.includes('model') && (lower.includes('not found') || lower.includes('unknown') || lower.includes('invalid')))
-    return 'modèle Gemini indisponible. Réessayez plus tard.';
+  if (lower.includes('model') && (lower.includes('not found') || lower.includes('unknown') || lower.includes('invalid') || lower.includes('unavailable')))
+    return 'aucun modèle Gemini accessible avec votre clé (région ou quota). Réessayez plus tard ou vérifiez aistudio.google.com.';
   if (message.length > 150 || /sk-ant-|api[_-]?key|AIza/i.test(message)) return '';
   return message.slice(0, 150);
 }
@@ -44,11 +44,14 @@ function sanitizeLlmError(error: unknown): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Validate API key early (Gemini)
+    // Validate API key early (Gemini) — lue à chaque requête (Next charge .env au démarrage)
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY non configurée. Ajoutez votre clé API Gemini dans le fichier .env (aistudio.google.com).' },
+        {
+          error: 'GEMINI_API_KEY non configurée.',
+          hint: 'Ajoutez GEMINI_API_KEY=votre_cle dans le fichier .env à la racine du projet (sans espace autour du =). Puis redémarrez le serveur (arrêtez puis relancez npm run dev). Clé : aistudio.google.com/apikey',
+        },
         { status: 503 }
       );
     }

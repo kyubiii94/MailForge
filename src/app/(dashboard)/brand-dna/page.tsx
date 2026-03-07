@@ -45,8 +45,9 @@ export default function BrandDNAPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Extraction failed');
+        const data = await res.json().catch(() => ({}));
+        const msg = data.hint ? `${data.error || 'Erreur'}\n\n${data.hint}` : (data.error || 'Extraction failed');
+        throw new Error(msg);
       }
 
       const data = await res.json();

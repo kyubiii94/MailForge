@@ -4,21 +4,40 @@ import type { BrandDNA, EditorialTone } from '@/types';
 const apiKey = process.env.GEMINI_API_KEY?.trim() ?? '';
 const ai = new GoogleGenAI({ apiKey });
 
-const MODEL = 'gemini-1.5-flash';
+// Ordre de tentative : modèles les plus disponibles sur l’API Google AI (aistudio.google.com)
+const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
+
+function isModelError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes('model') &&
+    (msg.includes('not found') || msg.includes('unknown') || msg.includes('invalid') || msg.includes('unavailable') || msg.includes('404'))
+  );
+}
 
 async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: { maxOutputTokens: maxTokens },
-  }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  let lastError: unknown;
+  for (const model of MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: { maxOutputTokens: maxTokens },
+      }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
-  let text = response.text;
-  if (!text && response.candidates?.[0]?.content?.parts?.[0]?.text) {
-    text = response.candidates[0].content.parts[0].text;
+      let text = response.text;
+      if (!text && response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        text = response.candidates[0].content.parts[0].text;
+      }
+      if (!text) throw new Error('Réponse vide de Gemini');
+      return text;
+    } catch (err) {
+      lastError = err;
+      if (isModelError(err)) continue; // essayer le modèle suivant
+      throw err;
+    }
   }
-  if (!text) throw new Error('Réponse vide de Gemini');
-  return text;
+  throw lastError;
 }
 
 /**
