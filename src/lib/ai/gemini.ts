@@ -20,7 +20,6 @@ function getErrorCode(err: unknown): number | undefined {
   if (typeof e?.statusCode === 'number') return e.statusCode;
   if (typeof e?.code === 'number') return e.code;
   if (typeof e?.httpCode === 'number') return e.httpCode;
-
   const msg = err instanceof Error ? err.message : String(err);
   const codeMatch = msg.match(/"code"\s*:\s*(\d{3})/);
   if (codeMatch) return parseInt(codeMatch[1], 10);
@@ -30,21 +29,64 @@ function getErrorCode(err: unknown): number | undefined {
 function isModelNotFoundError(err: unknown): boolean {
   const code = getErrorCode(err);
   if (code === 404) return true;
-
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  if (msg.includes('is not found') || msg.includes('model not found') || msg.includes('models/') && msg.includes('not found')) {
-    return true;
-  }
-  return false;
+  return msg.includes('is not found') || msg.includes('model not found') || (msg.includes('models/') && msg.includes('not found'));
 }
 
-async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
+function extractJson(raw: string): string {
+  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  const braceMatch = raw.match(/\{[\s\S]*\}/);
+  if (braceMatch) return braceMatch[0];
+  return raw.trim();
+}
+
+async function generateJson<T>(prompt: string, maxTokens = 1024): Promise<T> {
   const client = getClient();
   let lastError: unknown;
 
   for (const model of MODELS) {
     try {
-      console.log(`[Gemini] Trying model: ${model}`);
+      console.log(`[Gemini] Trying model: ${model} (JSON mode)`);
+      const response = await client.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: maxTokens,
+        },
+      }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+
+      let text = response.text;
+      if (!text && response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        text = response.candidates[0].content.parts[0].text;
+      }
+      if (!text) throw new Error('Réponse vide de Gemini');
+
+      console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 200)}`);
+      const jsonStr = extractJson(text);
+      const parsed = JSON.parse(jsonStr) as T;
+      console.log(`[Gemini] JSON parsed OK with model ${model}`);
+      return parsed;
+    } catch (err) {
+      const code = getErrorCode(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Gemini] Model ${model} failed (HTTP ${code ?? '?'}):`, msg.slice(0, 300));
+      lastError = err;
+      if (isModelNotFoundError(err)) continue;
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+async function generateText(prompt: string, maxTokens = 4096): Promise<string> {
+  const client = getClient();
+  let lastError: unknown;
+
+  for (const model of MODELS) {
+    try {
+      console.log(`[Gemini] Trying model: ${model} (text mode)`);
       const response = await client.models.generateContent({
         model,
         contents: prompt,
@@ -63,11 +105,7 @@ async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[Gemini] Model ${model} failed (HTTP ${code ?? '?'}):`, msg.slice(0, 300));
       lastError = err;
-
-      if (isModelNotFoundError(err)) {
-        console.warn(`[Gemini] Model ${model} not found, trying next...`);
-        continue;
-      }
+      if (isModelNotFoundError(err)) continue;
       throw err;
     }
   }
@@ -84,7 +122,7 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
     try {
       const response = await client.models.generateContent({
         model,
-        contents: 'Réponds uniquement "ok".',
+        contents: 'Reply with exactly: ok',
         config: { maxOutputTokens: 10 },
       }) as { text?: string };
       if (response.text) {
@@ -107,7 +145,6 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
  */
 export async function analyzeEditorialTone(textContent: string): Promise<EditorialTone> {
   const prompt = `Tu es un expert en analyse de communication de marque.
-
 Analyse le ton éditorial des textes suivants extraits d'un site web.
 
 Textes du site :
@@ -115,18 +152,21 @@ Textes du site :
 ${textContent.slice(0, 8000)}
 """
 
-Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
+Réponds en JSON avec exactement cette structure (pas de texte autour, uniquement le JSON) :
 {
-  "tone": "le ton principal (ex: formel, décontracté, inspirationnel, technique, chaleureux, professionnel)",
+  "tone": "le ton principal détecté",
   "style_notes": "description détaillée du style en 2-3 phrases",
-  "formality_level": nombre de 1 à 10 (1=très informel, 10=très formel),
-  "energy_level": nombre de 1 à 10 (1=calme/posé, 10=dynamique/enthousiaste)
-}`;
+  "formality_level": 5,
+  "energy_level": 5
+}
 
-  const text = await generateText(prompt, 1024);
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Réponse Gemini non JSON');
-  return JSON.parse(jsonMatch[0]) as EditorialTone;
+Règles :
+- tone : un mot ou expression courte (formel, décontracté, inspirationnel, technique, chaleureux, professionnel, etc.)
+- style_notes : 2-3 phrases décrivant le style de communication
+- formality_level : entier de 1 (très informel) à 10 (très formel)
+- energy_level : entier de 1 (calme/posé) à 10 (dynamique/enthousiaste)`;
+
+  return generateJson<EditorialTone>(prompt, 1024);
 }
 
 /**
@@ -135,24 +175,26 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
 export async function extractKeywords(
   textContent: string
 ): Promise<{ keywords: string[]; slogans: string[]; lexicalFields: string[] }> {
-  const prompt = `Analyse les textes suivants d'un site web et extrais les éléments clés.
+  const prompt = `Analyse les textes suivants d'un site web et extrais les éléments clés de la marque.
 
 Textes :
 """
 ${textContent.slice(0, 8000)}
 """
 
-Réponds UNIQUEMENT en JSON valide :
+Réponds en JSON avec exactement cette structure :
 {
-  "keywords": ["mot-clé 1", "mot-clé 2", ...],
-  "slogans": ["slogan ou phrase d'accroche trouvée", ...],
-  "lexicalFields": ["champ lexical 1 (ex: innovation)", "champ lexical 2 (ex: confiance)", ...]
-}`;
+  "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
+  "slogans": ["slogan ou phrase d'accroche trouvée sur le site"],
+  "lexicalFields": ["champ lexical 1", "champ lexical 2"]
+}
 
-  const text = await generateText(prompt, 1024);
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Réponse Gemini non JSON');
-  return JSON.parse(jsonMatch[0]);
+Règles :
+- keywords : 5 à 15 mots-clés représentatifs de la marque
+- slogans : les phrases d'accroche ou taglines trouvées dans le texte
+- lexicalFields : 3 à 8 champs lexicaux dominants (ex: innovation, confiance, luxe, nature)`;
+
+  return generateJson<{ keywords: string[]; slogans: string[]; lexicalFields: string[] }>(prompt, 1024);
 }
 
 /**
@@ -176,36 +218,39 @@ export async function improveEmailDraft(params: {
 
   const prompt = `Tu es un expert en email marketing avec 15 ans d'expérience.
 
-Voici l'ADN de la marque :
+ADN de la marque :
 - Ton : ${tone || brandDNA.editorialTone.tone}
-- Mots-clés de la marque : ${brandDNA.keywords.keywords.join(', ')}
+- Mots-clés : ${brandDNA.keywords.keywords.join(', ')}
 - Style : ${brandDNA.editorialTone.style_notes}
 - Couleur dominante : ${brandDNA.colors.primary}
 
-Voici le brouillon du client :
+Brouillon du client :
 """
 ${draft}
 """
 
-Objectif de la campagne : ${campaignGoal}
+Objectif : ${campaignGoal}
 CTA souhaité : ${desiredCTA || 'À déterminer selon le contexte'}
 Longueur cible : ${targetLength} mots
 
-Génère un email marketing optimisé en respectant strictement le ton et le vocabulaire de la marque.
+Génère un email marketing optimisé en respectant le ton et le vocabulaire de la marque.
 
-Réponds UNIQUEMENT en JSON valide avec cette structure :
+Réponds en JSON :
 {
   "subject": "Objet de l'email (max 60 caractères)",
   "preheader": "Pré-header (max 100 caractères)",
   "headline": "Titre principal accrocheur",
-  "body": "Corps de l'email en HTML simple (paragraphes <p>, listes <ul>, gras <strong>)",
+  "body": "Corps de l'email en HTML simple (p, ul, strong)",
   "ctaText": "Texte du bouton CTA (max 30 caractères)"
 }`;
 
-  const text = await generateText(prompt, 2048);
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Réponse Gemini non JSON');
-  return JSON.parse(jsonMatch[0]);
+  return generateJson<{
+    subject: string;
+    preheader: string;
+    headline: string;
+    body: string;
+    ctaText: string;
+  }>(prompt, 2048);
 }
 
 /**
@@ -257,7 +302,7 @@ Règles strictes :
 - Compatible Outlook (MSO conditional comments)
 - Design responsive (mobile 375px)
 
-Génère le code MJML complet. Réponds UNIQUEMENT avec le code MJML, sans explications, entre les balises <mjml> et </mjml>.`;
+Génère le code MJML complet. Réponds UNIQUEMENT avec le code MJML entre les balises <mjml> et </mjml>, sans explications.`;
 
   const text = await generateText(prompt, 4096);
   const mjmlMatch = text.match(/<mjml[\s\S]*<\/mjml>/);
