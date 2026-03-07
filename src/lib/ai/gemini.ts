@@ -41,13 +41,52 @@ function extractJson(raw: string): string {
   return raw.trim();
 }
 
-async function generateJson<T>(prompt: string, maxTokens = 1024): Promise<T> {
+/**
+ * Attempt to repair truncated JSON (unterminated strings, missing closing braces).
+ */
+function repairJson(raw: string): string {
+  let s = raw.trim();
+  // Close any unterminated string
+  const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
+  if (quoteCount % 2 !== 0) s += '"';
+  // Balance braces and brackets
+  let braces = 0;
+  let brackets = 0;
+  let inString = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') braces++;
+    else if (ch === '}') braces--;
+    else if (ch === '[') brackets++;
+    else if (ch === ']') brackets--;
+  }
+  // Remove trailing comma before closing
+  s = s.replace(/,\s*$/, '');
+  while (brackets > 0) { s += ']'; brackets--; }
+  while (braces > 0) { s += '}'; braces--; }
+  return s;
+}
+
+function safeJsonParse<T>(raw: string): T {
+  const jsonStr = extractJson(raw);
+  try {
+    return JSON.parse(jsonStr) as T;
+  } catch {
+    console.warn('[Gemini] JSON.parse failed, attempting repair...');
+    const repaired = repairJson(jsonStr);
+    return JSON.parse(repaired) as T;
+  }
+}
+
+async function generateJson<T>(prompt: string, maxTokens = 2048): Promise<T> {
   const client = getClient();
   let lastError: unknown;
 
   for (const model of MODELS) {
     try {
-      console.log(`[Gemini] Trying model: ${model} (JSON mode)`);
+      console.log(`[Gemini] Trying model: ${model} (JSON mode, ${maxTokens} max tokens)`);
       const response = await client.models.generateContent({
         model,
         contents: prompt,
@@ -63,9 +102,8 @@ async function generateJson<T>(prompt: string, maxTokens = 1024): Promise<T> {
       }
       if (!text) throw new Error('Réponse vide de Gemini');
 
-      console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 200)}`);
-      const jsonStr = extractJson(text);
-      const parsed = JSON.parse(jsonStr) as T;
+      console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 300)}`);
+      const parsed = safeJsonParse<T>(text);
       console.log(`[Gemini] JSON parsed OK with model ${model}`);
       return parsed;
     } catch (err) {
@@ -166,7 +204,7 @@ Règles :
 - formality_level : entier de 1 (très informel) à 10 (très formel)
 - energy_level : entier de 1 (calme/posé) à 10 (dynamique/enthousiaste)`;
 
-  return generateJson<EditorialTone>(prompt, 1024);
+  return generateJson<EditorialTone>(prompt, 2048);
 }
 
 /**
@@ -194,7 +232,7 @@ Règles :
 - slogans : les phrases d'accroche ou taglines trouvées dans le texte
 - lexicalFields : 3 à 8 champs lexicaux dominants (ex: innovation, confiance, luxe, nature)`;
 
-  return generateJson<{ keywords: string[]; slogans: string[]; lexicalFields: string[] }>(prompt, 1024);
+  return generateJson<{ keywords: string[]; slogans: string[]; lexicalFields: string[] }>(prompt, 2048);
 }
 
 /**
