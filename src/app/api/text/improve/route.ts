@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { improveTextSchema } from '@/lib/validators';
-import { improveEmailDraft } from '@/lib/ai/claude';
+import { improveEmailDraft } from '@/lib/ai/gemini';
 import { db } from '@/lib/db';
 
 /**
- * POST /api/text/improve - Improve a draft email using Claude AI (Module 02, Option B).
+ * POST /api/text/improve - Improve a draft email using Gemini AI (Module 02, Option B).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
 
-    // Call Claude AI
+    // Call Gemini AI
     const improved = await improveEmailDraft({
       draft,
       brandDNA,

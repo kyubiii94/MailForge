@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateDesignSchema } from '@/lib/validators';
-import { generateEmailDesign } from '@/lib/ai/claude';
+import { generateEmailDesign } from '@/lib/ai/gemini';
 import { compileMjml, calculateDeliverabilityScore } from '@/lib/email/mjml-compiler';
 import { db } from '@/lib/db';
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     for (let i = 1; i <= variantCount; i++) {
       try {
-        // Generate MJML with Claude
+        // Generate MJML with Gemini
         const { mjml } = await generateEmailDesign({
           brandDNA,
           textContent: {

@@ -166,7 +166,7 @@ export default function CampaignTextPage() {
       setCtaText(data.ctaText);
       setTextContent(data);
     } catch {
-      setError('Erreur lors de l\'amélioration. Vérifiez votre clé API Anthropic dans .env.');
+      setError('Erreur lors de l\'amélioration. Vérifiez GEMINI_API_KEY dans .env.');
     } finally {
       setIsProcessing(false);
     }
