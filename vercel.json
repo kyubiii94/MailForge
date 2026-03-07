@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "src/app/api/brand-dna/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/text/improve/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/design/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/text/extract/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
