@@ -90,8 +90,9 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
       }
     });
 
-    // Fetch external stylesheets (limit to 3)
-    for (const styleLink of styleLinks.slice(0, 3)) {
+    // Fetch external stylesheets (up to 12 for better palette/theme coverage)
+    const MAX_STYLESHEETS = 12;
+    for (const styleLink of styleLinks.slice(0, MAX_STYLESHEETS)) {
       try {
         const cssRes = await fetch(styleLink, { signal: AbortSignal.timeout(5000) });
         if (cssRes.ok) {

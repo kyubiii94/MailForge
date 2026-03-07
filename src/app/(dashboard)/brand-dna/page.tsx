@@ -61,15 +61,24 @@ export default function BrandDNAPage() {
     if (!brandDNA) return;
 
     try {
+      // Persist full state so manual corrections (colors, etc.) are saved
       await fetch(`/api/brand-dna/${brandDNA.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isValidated: true }),
+        body: JSON.stringify({
+          colors: brandDNA.colors,
+          typography: brandDNA.typography,
+          editorialTone: brandDNA.editorialTone,
+          visualStyle: brandDNA.visualStyle,
+          keywords: brandDNA.keywords,
+          isValidated: true,
+        }),
       });
+      const updated = { ...brandDNA, isValidated: true };
       setIsValidated(true);
-      setBrandDNAStore({ ...brandDNA, isValidated: true });
+      setBrandDNAStore(updated);
     } catch {
-      setError('Failed to validate brand DNA');
+      setError('Échec de la validation de l\'ADN');
     }
   };
 
@@ -141,14 +150,16 @@ export default function BrandDNAPage() {
             </div>
           )}
 
-          {/* Color Palette */}
+          {/* Color Palette — validation manuelle */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-brand-500" />
                 Palette de couleurs
               </CardTitle>
-              <CardDescription>Couleurs extraites de votre site. Cliquez pour modifier.</CardDescription>
+              <CardDescription>
+                Couleurs extraites de votre site. Vous pouvez corriger primary, secondary et accent si l&apos;analyse automatique ne convient pas, puis valider l&apos;ADN pour enregistrer.
+              </CardDescription>
             </CardHeader>
             <div className="flex flex-wrap gap-6">
               {Object.entries(brandDNA.colors).map(([key, value]) => (
@@ -304,8 +315,8 @@ export default function BrandDNAPage() {
             </div>
           </Card>
 
-          {/* Action buttons */}
-          <div className="flex gap-4 pt-4">
+          {/* Action buttons — validation manuelle enregistre les corrections */}
+          <div className="flex flex-wrap items-center gap-4 pt-4">
             <Button onClick={handleValidate} size="lg" disabled={isValidated}>
               <Check className="w-4 h-4" />
               {isValidated ? 'ADN Validé' : 'Valider l\'ADN'}
@@ -314,6 +325,11 @@ export default function BrandDNAPage() {
               <RefreshCw className="w-4 h-4" />
               Ré-analyser
             </Button>
+            {!isValidated && (
+              <p className="text-sm text-surface-500">
+                Vérifiez les couleurs et autres champs ci-dessus, corrigez si besoin, puis cliquez sur &quot;Valider l&apos;ADN&quot; pour enregistrer.
+              </p>
+            )}
           </div>
         </div>
       )}
