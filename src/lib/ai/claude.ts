@@ -5,7 +5,8 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-const MODEL = 'claude-sonnet-4-20250514';
+// Modèle stable et disponible (voir https://docs.anthropic.com/en/api/models-list)
+const MODEL = 'claude-3-5-sonnet-20241022';
 
 /**
  * Analyze editorial tone from website text content using Claude AI.

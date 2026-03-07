@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,9 @@ import {
   BarChart3,
   AlertCircle,
 } from 'lucide-react';
+
+const isBrandDnaMissingError = (msg: string) =>
+  /brand dna not found|ADN de marque non trouvé|aucun ADN/i.test(msg);
 
 const steps = [
   { id: 'text', label: 'Contenu Textuel' },
@@ -83,7 +87,7 @@ export default function CampaignDesignPage() {
 
     const brandDnaId = await getBrandDnaId();
     if (!brandDnaId) {
-      setError('ADN de marque non trouvé.');
+      setError('brand_dna_required');
       return;
     }
 
@@ -114,7 +118,8 @@ export default function CampaignDesignPage() {
         setSelectedDesign(designData[0]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Design generation failed');
+      const msg = err instanceof Error ? err.message : 'Design generation failed';
+      setError(isBrandDnaMissingError(msg) ? 'brand_dna_required' : msg);
     } finally {
       setIsGenerating(false);
     }
@@ -231,7 +236,24 @@ export default function CampaignDesignPage() {
           </div>
 
           {error && (
-            <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
+            <div className="mt-3 rounded-lg px-4 py-2 bg-red-50 border border-red-100">
+              {error === 'brand_dna_required' ? (
+                <div className="text-sm text-red-800">
+                  <p className="font-medium">ADN de marque requis</p>
+                  <p className="mt-1 text-red-700">
+                    Analysez d&apos;abord votre site dans <strong>ADN de Marque</strong> pour pouvoir générer le design. Les données sont réinitialisées après redémarrage du serveur.
+                  </p>
+                  <Link
+                    href="/brand-dna"
+                    className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-brand-600 hover:text-brand-700 underline"
+                  >
+                    Aller à ADN de Marque →
+                  </Link>
+                </div>
+              ) : (
+                <p className="text-sm text-red-600">{error}</p>
+              )}
+            </div>
           )}
         </Card>
       )}

@@ -11,11 +11,13 @@ export async function crawlMainPages(siteUrl: string): Promise<CrawledPage[]> {
 
   console.log(`[Crawler] Starting crawl for ${siteUrl}`);
 
+  const normalizedHome = normalizeCrawlUrl(siteUrl);
+
   // Crawl the homepage first
   const homepage = await fetchAndParse(siteUrl);
   if (homepage) {
     pages.push(homepage);
-    visited.add(siteUrl);
+    visited.add(normalizedHome);
     console.log(`[Crawler] Homepage OK: ${siteUrl} (${homepage.textContent.length} chars text, ${homepage.cssContent.length} CSS blocks)`);
   } else {
     console.warn(`[Crawler] Failed to fetch homepage: ${siteUrl}`);
@@ -44,9 +46,12 @@ export async function crawlMainPages(siteUrl: string): Promise<CrawledPage[]> {
   const priorityLinks = allLinks.filter((link) =>
     targetPaths.some((path) => link.toLowerCase().includes(path))
   );
-  // Then add remaining nav links (likely important pages)
+  // Then nav links, then any other internal link (fallback when site has no /about, etc.)
   const otherNavLinks = navLinks.filter((l) => !priorityLinks.includes(l));
-  const orderedLinks = [...priorityLinks, ...otherNavLinks];
+  const rest = discoveredLinks.filter(
+    (l) => !priorityLinks.includes(l) && !otherNavLinks.includes(l)
+  );
+  const orderedLinks = [...priorityLinks, ...otherNavLinks, ...rest];
 
   const MAX_SECONDARY_PAGES = 6;
   let crawled = 0;
@@ -161,6 +166,20 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
   }
 }
 
+/** Normalize URL for crawling: remove hash, avoid duplicate with/without trailing slash. */
+function normalizeCrawlUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = '';
+    let path = u.pathname.replace(/\/+$/, '') || '/';
+    if (path !== '/') path = path.replace(/\/+$/, '');
+    u.pathname = path || '/';
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Extract links from nav/header menus (typically the most important pages).
  */
@@ -170,10 +189,10 @@ function extractNavLinks(html: string, baseUrl: string): string[] {
 
   $('nav a[href], header a[href], [role="navigation"] a[href]').each((_, el) => {
     const href = $(el).attr('href');
-    if (!href || href === '/' || href === '#') return;
+    if (!href || href === '/' || href === '#' || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
     try {
       const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
-      if (fullUrl.startsWith(baseUrl)) links.add(fullUrl);
+      if (fullUrl.startsWith(baseUrl)) links.add(normalizeCrawlUrl(fullUrl));
     } catch { /* skip invalid */ }
   });
 
@@ -189,12 +208,12 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href');
-    if (!href || href === '/' || href === '#') return;
+    if (!href || href === '/' || href === '#' || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
 
     try {
       const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
       if (fullUrl.startsWith(baseUrl)) {
-        links.add(fullUrl);
+        links.add(normalizeCrawlUrl(fullUrl));
       }
     } catch {
       // Invalid URL, skip

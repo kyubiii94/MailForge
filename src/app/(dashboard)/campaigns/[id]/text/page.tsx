@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -133,7 +134,7 @@ export default function CampaignTextPage() {
     try {
       const brandDnaId = await getBrandDnaId();
       if (!brandDnaId) {
-        setError('ADN de marque non trouvé. Veuillez d\'abord analyser votre site.');
+        setError('brand_dna_required');
         return;
       }
 
@@ -149,7 +150,12 @@ export default function CampaignTextPage() {
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to improve text');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = data?.error || 'Failed to improve text';
+        setError(/brand dna not found|ADN de marque/i.test(msg) ? 'brand_dna_required' : msg);
+        return;
+      }
       const data = await res.json();
 
       // Set the improved content in the editor
@@ -160,7 +166,7 @@ export default function CampaignTextPage() {
       setCtaText(data.ctaText);
       setTextContent(data);
     } catch {
-      setError('Erreur lors de l\'amélioration. Vérifiez votre clé API Anthropic.');
+      setError('Erreur lors de l\'amélioration. Vérifiez votre clé API Anthropic dans .env.');
     } finally {
       setIsProcessing(false);
     }
@@ -380,7 +386,24 @@ export default function CampaignTextPage() {
         )}
 
         {error && (
-          <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
+          <div className="mt-3 rounded-lg px-4 py-2 bg-red-50 border border-red-100">
+            {error === 'brand_dna_required' ? (
+              <div className="text-sm text-red-800">
+                <p className="font-medium">ADN de marque requis</p>
+                <p className="mt-1 text-red-700">
+                  Analysez d&apos;abord votre site dans <strong>ADN de Marque</strong> pour utiliser l&apos;amélioration IA. Les données sont réinitialisées après redémarrage du serveur.
+                </p>
+                <Link
+                  href="/brand-dna"
+                  className="inline-flex items-center gap-1 mt-2 text-sm font-medium text-brand-600 hover:text-brand-700 underline"
+                >
+                  Aller à ADN de Marque →
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
+          </div>
         )}
       </Card>
 
