@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import type { BrandDNA, EditorialTone } from '@/types';
 
-const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
 let _client: GoogleGenAI | null = null;
 
@@ -77,8 +77,9 @@ async function generateText(prompt: string, maxTokens = 1024): Promise<string> {
 /**
  * Test minimal pour vérifier que la clé API fonctionne.
  */
-export async function testConnection(): Promise<{ ok: boolean; model: string; error?: string }> {
+export async function testConnection(): Promise<{ ok: boolean; model: string; error?: string; details?: Record<string, string> }> {
   const client = getClient();
+  const details: Record<string, string> = {};
   for (const model of MODELS) {
     try {
       const response = await client.models.generateContent({
@@ -87,15 +88,18 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
         config: { maxOutputTokens: 10 },
       }) as { text?: string };
       if (response.text) {
-        return { ok: true, model };
+        return { ok: true, model, details };
       }
+      details[model] = 'Réponse vide';
     } catch (err) {
-      if (isModelNotFoundError(err)) continue;
+      const code = getErrorCode(err);
       const msg = err instanceof Error ? err.message : String(err);
-      return { ok: false, model, error: msg.slice(0, 200) };
+      details[model] = `HTTP ${code ?? '?'}: ${msg.slice(0, 150)}`;
+      if (isModelNotFoundError(err)) continue;
+      return { ok: false, model, error: msg.slice(0, 200), details };
     }
   }
-  return { ok: false, model: MODELS.join(', '), error: 'Aucun modèle accessible' };
+  return { ok: false, model: MODELS.join(', '), error: 'Aucun modèle accessible', details };
 }
 
 /**
