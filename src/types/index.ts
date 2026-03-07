@@ -18,6 +18,8 @@ export interface BrandDNA {
   visualStyle: VisualStyle;
   keywords: Keywords;
   isValidated: boolean;
+  warnings?: string[];
+  pagesAnalyzed?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -7,31 +7,66 @@ import * as cheerio from 'cheerio';
 export async function crawlMainPages(siteUrl: string): Promise<CrawledPage[]> {
   const baseUrl = new URL(siteUrl).origin;
   const pages: CrawledPage[] = [];
+  const visited = new Set<string>();
+
+  console.log(`[Crawler] Starting crawl for ${siteUrl}`);
 
   // Crawl the homepage first
   const homepage = await fetchAndParse(siteUrl);
   if (homepage) {
     pages.push(homepage);
+    visited.add(siteUrl);
+    console.log(`[Crawler] Homepage OK: ${siteUrl} (${homepage.textContent.length} chars text, ${homepage.cssContent.length} CSS blocks)`);
+  } else {
+    console.warn(`[Crawler] Failed to fetch homepage: ${siteUrl}`);
+    return pages;
   }
 
-  // Discover internal links to key pages
-  const targetPaths = ['/about', '/a-propos', '/qui-sommes-nous', '/products', '/produits', '/services'];
-  const discoveredLinks = homepage
-    ? extractInternalLinks(homepage.html, baseUrl)
-    : [];
+  // Discover internal links from homepage
+  const discoveredLinks = extractInternalLinks(homepage.html, baseUrl);
 
-  const priorityLinks = discoveredLinks.filter((link) =>
+  // Priority paths for brand analysis
+  const targetPaths = [
+    '/about', '/a-propos', '/qui-sommes-nous', '/notre-histoire',
+    '/products', '/produits', '/services', '/solutions', '/offres',
+    '/contact', '/nous-contacter',
+    '/pricing', '/tarifs', '/prix',
+    '/team', '/equipe', '/notre-equipe',
+    '/blog', '/actualites', '/news',
+    '/values', '/nos-valeurs', '/mission',
+  ];
+
+  // Also extract links from nav/header menus (high-value pages)
+  const navLinks = extractNavLinks(homepage.html, baseUrl);
+  const allLinks = Array.from(new Set([...navLinks, ...discoveredLinks]));
+
+  // Prioritize links that match known brand-relevant paths
+  const priorityLinks = allLinks.filter((link) =>
     targetPaths.some((path) => link.toLowerCase().includes(path))
-  ).slice(0, 3);
+  );
+  // Then add remaining nav links (likely important pages)
+  const otherNavLinks = navLinks.filter((l) => !priorityLinks.includes(l));
+  const orderedLinks = [...priorityLinks, ...otherNavLinks];
 
-  // Crawl discovered priority pages
-  for (const link of priorityLinks) {
+  const MAX_SECONDARY_PAGES = 6;
+  let crawled = 0;
+
+  for (const link of orderedLinks) {
+    if (crawled >= MAX_SECONDARY_PAGES) break;
+    if (visited.has(link)) continue;
+    visited.add(link);
+
     const page = await fetchAndParse(link);
     if (page) {
       pages.push(page);
+      crawled++;
+      console.log(`[Crawler] Page ${crawled}/${MAX_SECONDARY_PAGES}: ${link} (${page.textContent.length} chars)`);
+    } else {
+      console.warn(`[Crawler] Failed to fetch: ${link}`);
     }
   }
 
+  console.log(`[Crawler] Done: ${pages.length} pages crawled for ${baseUrl}`);
   return pages;
 }
 
@@ -69,19 +104,11 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    // Remove scripts, nav, footer, cookie banners
-    $('script, style, nav, footer, .cookie-banner, .cookie-consent, #cookie, noscript, iframe').remove();
-
-    const textContent = $('body').text().replace(/\s+/g, ' ').trim();
-    const title = $('title').text().trim();
-    const metaDescription = $('meta[name="description"]').attr('content') || '';
-
-    // Extract CSS (inline styles and linked stylesheets)
+    // Extract CSS and stylesheet links BEFORE removing elements from the DOM
     const cssContent: string[] = [];
     $('style').each((_, el) => {
       cssContent.push($(el).text());
     });
-    // Extract link[rel=stylesheet] hrefs for further fetching
     const styleLinks: string[] = [];
     $('link[rel="stylesheet"]').each((_, el) => {
       const href = $(el).attr('href');
@@ -89,6 +116,19 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
         styleLinks.push(href.startsWith('http') ? href : new URL(href, url).href);
       }
     });
+
+    // Extract inline style attributes from key elements
+    $('[style]').each((_, el) => {
+      const style = $(el).attr('style');
+      if (style) cssContent.push(`inline { ${style} }`);
+    });
+
+    // Now remove non-content elements for clean text extraction
+    $('script, style, noscript, iframe, .cookie-banner, .cookie-consent, #cookie').remove();
+
+    const title = $('title').text().trim();
+    const metaDescription = $('meta[name="description"]').attr('content') || '';
+    const textContent = $('body').text().replace(/\s+/g, ' ').trim();
 
     // Fetch external stylesheets (up to 12 for better palette/theme coverage)
     const MAX_STYLESHEETS = 12;
@@ -98,8 +138,8 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
         if (cssRes.ok) {
           cssContent.push(await cssRes.text());
         }
-      } catch {
-        // Skip failed CSS fetches
+      } catch (err) {
+        console.warn(`[Crawler] Failed to fetch stylesheet ${styleLink}:`, err instanceof Error ? err.message : err);
       }
     }
 
@@ -115,13 +155,33 @@ async function fetchAndParse(url: string): Promise<CrawledPage | null> {
     });
 
     return { url, html, textContent, title, cssContent, imageUrls, metaDescription };
-  } catch {
+  } catch (error) {
+    console.error(`[Crawler] Error fetching ${url}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
 
 /**
- * Extract internal links from HTML.
+ * Extract links from nav/header menus (typically the most important pages).
+ */
+function extractNavLinks(html: string, baseUrl: string): string[] {
+  const $ = cheerio.load(html);
+  const links: Set<string> = new Set();
+
+  $('nav a[href], header a[href], [role="navigation"] a[href]').each((_, el) => {
+    const href = $(el).attr('href');
+    if (!href || href === '/' || href === '#') return;
+    try {
+      const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+      if (fullUrl.startsWith(baseUrl)) links.add(fullUrl);
+    } catch { /* skip invalid */ }
+  });
+
+  return Array.from(links);
+}
+
+/**
+ * Extract all internal links from HTML.
  */
 function extractInternalLinks(html: string, baseUrl: string): string[] {
   const $ = cheerio.load(html);
@@ -129,7 +189,7 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href');
-    if (!href) return;
+    if (!href || href === '/' || href === '#') return;
 
     try {
       const fullUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;

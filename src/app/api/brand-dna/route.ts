@@ -5,11 +5,21 @@ import { extractTypography, extractColorPalette, analyzeVisualStyleFromPages } f
 import { analyzeEditorialTone, extractKeywords } from '@/lib/ai/claude';
 import { db } from '@/lib/db';
 
+export const maxDuration = 60;
+
 /**
  * POST /api/brand-dna - Extract brand DNA from a website URL.
  */
 export async function POST(request: NextRequest) {
   try {
+    // Validate API key early
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: 'ANTHROPIC_API_KEY non configurée. Ajoutez votre clé API Anthropic dans le fichier .env pour activer l\'analyse IA.' },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const parsed = extractBrandDNASchema.safeParse(body);
 
@@ -22,17 +32,30 @@ export async function POST(request: NextRequest) {
 
     const { siteUrl, workspaceId } = parsed.data;
     const wsId = workspaceId || '00000000-0000-0000-0000-000000000001';
+    const warnings: string[] = [];
 
     // Step 1: Crawl main pages
+    console.log(`[BrandDNA] Starting analysis for ${siteUrl}`);
     const pages = await crawlMainPages(siteUrl);
     if (pages.length === 0) {
       return NextResponse.json(
-        { error: 'Unable to crawl the website. Please check the URL and try again.' },
+        { error: 'Impossible de crawler le site. Vérifiez l\'URL et réessayez.' },
         { status: 422 }
       );
     }
 
+    if (pages.length === 1) {
+      warnings.push('Seule la page d\'accueil a pu être analysée. L\'analyse serait plus précise avec davantage de pages.');
+    }
+
     // Step 2: Extract CSS-based data (typography, colors, visual style)
+    const totalCssBlocks = pages.reduce((sum, p) => sum + p.cssContent.length, 0);
+    console.log(`[BrandDNA] ${pages.length} pages crawled, ${totalCssBlocks} CSS blocks extracted`);
+
+    if (totalCssBlocks === 0) {
+      warnings.push('Aucun CSS n\'a pu être extrait du site. Les couleurs et la typographie sont des estimations par défaut.');
+    }
+
     const typography = extractTypography(pages);
     const colors = extractColorPalette(pages);
     const visualStyle = analyzeVisualStyleFromPages(pages);
@@ -40,19 +63,26 @@ export async function POST(request: NextRequest) {
     // Step 3: Analyze text content with Claude AI
     const allText = pages.map((p) => p.textContent).join('\n\n');
 
+    if (allText.length < 100) {
+      warnings.push('Très peu de texte extrait du site. Le site utilise peut-être du rendu JavaScript (SPA) non supporté par le crawler.');
+    }
+
     let editorialTone;
     let keywords;
 
     try {
+      console.log(`[BrandDNA] Calling Claude AI for tone + keywords analysis (${allText.length} chars)...`);
       [editorialTone, keywords] = await Promise.all([
         analyzeEditorialTone(allText),
         extractKeywords(allText),
       ]);
-    } catch {
-      // Fallback if Claude API is unavailable
+      console.log(`[BrandDNA] Claude AI analysis complete: tone=${editorialTone.tone}, ${keywords.keywords.length} keywords`);
+    } catch (error) {
+      console.error('[BrandDNA] Claude AI analysis failed:', error instanceof Error ? error.message : error);
+      warnings.push('L\'analyse IA (ton éditorial, mots-clés) a échoué. Vérifiez votre clé API Anthropic et réessayez.');
       editorialTone = {
-        tone: 'professionnel',
-        style_notes: 'Tone analysis unavailable - please configure ANTHROPIC_API_KEY',
+        tone: 'non analysé',
+        style_notes: 'L\'analyse du ton éditorial a échoué. Vérifiez votre clé API Anthropic.',
         formality_level: 5,
         energy_level: 5,
       };
@@ -75,11 +105,16 @@ export async function POST(request: NextRequest) {
       isValidated: false,
     });
 
-    return NextResponse.json(brandDNA, { status: 201 });
-  } catch (error) {
-    console.error('Brand DNA extraction error:', error);
+    console.log(`[BrandDNA] Analysis complete for ${siteUrl}: ${warnings.length} warnings`);
+
     return NextResponse.json(
-      { error: 'Internal server error during brand DNA extraction' },
+      { ...brandDNA, warnings, pagesAnalyzed: pages.length },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('[BrandDNA] Unexpected error:', error);
+    return NextResponse.json(
+      { error: 'Erreur interne lors de l\'extraction de l\'ADN de marque.' },
       { status: 500 }
     );
   }

@@ -19,6 +19,8 @@ import {
   Check,
   Loader2,
   RefreshCw,
+  AlertTriangle,
+  FileSearch,
 } from 'lucide-react';
 
 export default function BrandDNAPage() {
@@ -130,9 +132,17 @@ export default function BrandDNAPage() {
           <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>
         )}
         {isExtracting && (
-          <div className="mt-6 flex items-center gap-3 text-brand-600">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Crawl des pages, extraction CSS, analyse IA... Cela peut prendre jusqu&apos;à 30 secondes.</span>
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center gap-3 text-brand-600">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">Analyse en cours...</span>
+            </div>
+            <div className="text-sm text-surface-500 space-y-1 pl-8">
+              <p>1. Crawl des pages principales du site</p>
+              <p>2. Extraction CSS (couleurs, typographies)</p>
+              <p>3. Analyse IA du ton et des mots-clés avec Claude</p>
+            </div>
+            <p className="text-xs text-surface-400 pl-8">Cela peut prendre jusqu&apos;à 60 secondes selon la taille du site.</p>
           </div>
         )}
       </Card>
@@ -147,6 +157,31 @@ export default function BrandDNAPage() {
               <span className="text-sm font-medium text-green-700">
                 ADN de marque validé ! Vous pouvez maintenant créer des campagnes.
               </span>
+            </div>
+          )}
+
+          {/* Analysis info */}
+          {brandDNA.pagesAnalyzed && (
+            <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 flex items-center gap-3">
+              <FileSearch className="w-5 h-5 text-brand-500" />
+              <span className="text-sm text-surface-700">
+                <strong>{brandDNA.pagesAnalyzed}</strong> page{brandDNA.pagesAnalyzed > 1 ? 's' : ''} analysée{brandDNA.pagesAnalyzed > 1 ? 's' : ''} sur <strong>{brandDNA.siteUrl}</strong>
+              </span>
+            </div>
+          )}
+
+          {/* Warnings */}
+          {brandDNA.warnings && brandDNA.warnings.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                <span className="text-sm font-medium text-amber-800">Attention — analyse partielle</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 pl-7">
+                {brandDNA.warnings.map((w, i) => (
+                  <li key={i} className="text-sm text-amber-700">{w}</li>
+                ))}
+              </ul>
             </div>
           )}
 
