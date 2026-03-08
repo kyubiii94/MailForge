@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       console.log('[Brief] DNA generated:', JSON.stringify(dna).slice(0, 300));
 
       const campaign = await db.createCampaign({
+        clientId: body.clientId || null,
         name: `${dna.marque.name} — Campagne newsletter`,
         brief,
         dna,
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
     console.log('[Brief] DNA generated:', JSON.stringify(dna).slice(0, 300));
 
     const campaign = await db.createCampaign({
+      clientId: body.clientId || null,
       name: `${brief.brand} — ${brief.objective}`,
       brief,
       dna,

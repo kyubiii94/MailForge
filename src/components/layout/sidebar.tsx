@@ -8,9 +8,11 @@ import {
   PenLine,
   Sparkles,
   Zap,
+  Users,
 } from 'lucide-react';
 
 const navItems = [
+  { href: '/clients', label: 'Clients', icon: Users },
   { href: '/brief', label: 'Nouveau Brief', icon: PenLine },
   { href: '/campaigns', label: 'Campagnes', icon: FolderOpen },
 ];
@@ -37,7 +39,7 @@ export function Sidebar() {
           Navigation
         </p>
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || (item.href === '/campaigns' && pathname.startsWith('/campaign'));
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || (item.href === '/campaigns' && pathname.startsWith('/campaign')) || (item.href === '/clients' && pathname.startsWith('/clients'));
           const Icon = item.icon;
 
           return (

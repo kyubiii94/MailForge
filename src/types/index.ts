@@ -1,5 +1,38 @@
 /** Core domain types for MailForge — Newsletter Campaign Platform */
 
+// ─── Client ────────────────────────────────────────────────────────────────────
+
+export interface Client {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sector: string;
+  positioning: string;
+  website: string | null;
+  socialLinks: {
+    instagram?: string;
+    tiktok?: string;
+    linkedin?: string;
+    pinterest?: string;
+  };
+  distribution: string[];
+  toneOfVoice: {
+    style: string;
+    language: string[];
+    do: string[];
+    dont: string[];
+  };
+  technicalPrefs: {
+    esp: 'mailchimp' | 'klaviyo' | 'brevo' | 'other' | null;
+    mergeTagsFormat: string;
+    darkMode: boolean;
+    languages: string[];
+  };
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Brief ────────────────────────────────────────────────────────────────────
 
 export type BriefMode = 'vague' | 'precise';
@@ -49,6 +82,7 @@ export type CampaignStatus = 'draft' | 'dna_ready' | 'generating' | 'generated' 
 
 export interface Campaign {
   id: string;
+  clientId: string | null;
   name: string;
   brief: CampaignBrief;
   dna: CampaignDNA;

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +10,14 @@ import type { BriefMode } from '@/types';
 
 export default function BriefPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<BriefMode>('vague');
+  const [clientId, setClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = searchParams.get('clientId');
+    if (id) setClientId(id);
+  }, [searchParams]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,9 +38,11 @@ export default function BriefPage() {
     setIsLoading(true);
 
     try {
+      const basePayload = { clientId: clientId || undefined };
       const payload = mode === 'precise'
-        ? { mode, siteUrl }
+        ? { ...basePayload, mode, siteUrl }
         : {
+            ...basePayload,
             mode,
             brand,
             sector,

@@ -20,6 +20,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const body = await request.json();
   const updated = await db.updateCampaign(id, {
+    ...(body.clientId !== undefined && { clientId: body.clientId }),
     ...(body.dna && { dna: body.dna }),
     ...(body.name && { name: body.name }),
     ...(body.selectedTemplateTypes && { selectedTemplateTypes: body.selectedTemplateTypes }),

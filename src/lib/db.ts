@@ -5,14 +5,70 @@
 
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { getDb, schema } from './db/index';
-import type { Campaign, NewsletterTemplate } from '@/types';
+import type { Campaign, NewsletterTemplate, Client } from '@/types';
+import { WORKSPACE_ID } from './constants';
 
-// ─── Campaigns ──────────────────────────────────────────────────────────────
+// ─── Clients ────────────────────────────────────────────────────────────────
 
 export const db = {
+  async createClient(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> {
+    const d = getDb();
+    const [row] = await d.insert(schema.clients).values({
+      workspaceId: data.workspaceId ?? WORKSPACE_ID,
+      name: data.name,
+      sector: data.sector ?? '',
+      positioning: data.positioning ?? '',
+      website: data.website ?? null,
+      socialLinks: data.socialLinks ?? {},
+      distribution: data.distribution ?? [],
+      toneOfVoice: data.toneOfVoice ?? { style: '', language: [], do: [], dont: [] },
+      technicalPrefs: data.technicalPrefs ?? { esp: null, mergeTagsFormat: '', darkMode: false, languages: [] },
+      notes: data.notes ?? '',
+    }).returning();
+    return rowToClient(row);
+  },
+
+  async getClient(id: string): Promise<Client | undefined> {
+    const d = getDb();
+    const [row] = await d.select().from(schema.clients).where(eq(schema.clients.id, id)).limit(1);
+    return row ? rowToClient(row) : undefined;
+  },
+
+  async listClients(): Promise<Client[]> {
+    const d = getDb();
+    const rows = await d.select().from(schema.clients).orderBy(desc(schema.clients.createdAt));
+    return rows.map(rowToClient);
+  },
+
+  async updateClient(id: string, data: Partial<Client>): Promise<Client | undefined> {
+    const d = getDb();
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.sector !== undefined) updates.sector = data.sector;
+    if (data.positioning !== undefined) updates.positioning = data.positioning;
+    if (data.website !== undefined) updates.website = data.website;
+    if (data.socialLinks !== undefined) updates.socialLinks = data.socialLinks;
+    if (data.distribution !== undefined) updates.distribution = data.distribution;
+    if (data.toneOfVoice !== undefined) updates.toneOfVoice = data.toneOfVoice;
+    if (data.technicalPrefs !== undefined) updates.technicalPrefs = data.technicalPrefs;
+    if (data.notes !== undefined) updates.notes = data.notes;
+
+    const [row] = await d.update(schema.clients).set(updates).where(eq(schema.clients.id, id)).returning();
+    return row ? rowToClient(row) : undefined;
+  },
+
+  async deleteClient(id: string): Promise<void> {
+    const d = getDb();
+    await d.update(schema.campaigns).set({ clientId: null }).where(eq(schema.campaigns.clientId, id));
+    await d.delete(schema.clients).where(eq(schema.clients.id, id));
+  },
+
+  // ─── Campaigns ──────────────────────────────────────────────────────────────
+
   async createCampaign(data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>): Promise<Campaign> {
     const d = getDb();
     const [row] = await d.insert(schema.campaigns).values({
+      clientId: data.clientId ?? null,
       name: data.name,
       brief: data.brief,
       dna: data.dna,
@@ -34,9 +90,18 @@ export const db = {
     return rows.map(rowToCampaign);
   },
 
+  async listCampaignsByClient(clientId: string): Promise<Campaign[]> {
+    const d = getDb();
+    const rows = await d.select().from(schema.campaigns)
+      .where(eq(schema.campaigns.clientId, clientId))
+      .orderBy(desc(schema.campaigns.createdAt));
+    return rows.map(rowToCampaign);
+  },
+
   async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign | undefined> {
     const d = getDb();
     const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.clientId !== undefined) updates.clientId = data.clientId;
     if (data.name !== undefined) updates.name = data.name;
     if (data.brief !== undefined) updates.brief = data.brief;
     if (data.dna !== undefined) updates.dna = data.dna;
@@ -115,12 +180,32 @@ export const db = {
 
 // ─── Row mappers ──────────────────────────────────────────────────────────────
 
+type ClientRow = typeof schema.clients.$inferSelect;
 type CampaignRow = typeof schema.campaigns.$inferSelect;
 type TemplateRow = typeof schema.templates.$inferSelect;
+
+function rowToClient(r: ClientRow): Client {
+  return {
+    id: r.id,
+    workspaceId: r.workspaceId,
+    name: r.name,
+    sector: r.sector,
+    positioning: r.positioning,
+    website: r.website,
+    socialLinks: (r.socialLinks as Client['socialLinks']) ?? {},
+    distribution: (r.distribution as string[]) ?? [],
+    toneOfVoice: (r.toneOfVoice as Client['toneOfVoice']) ?? { style: '', language: [], do: [], dont: [] },
+    technicalPrefs: (r.technicalPrefs as Client['technicalPrefs']) ?? { esp: null, mergeTagsFormat: '', darkMode: false, languages: [] },
+    notes: r.notes,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
 
 function rowToCampaign(r: CampaignRow): Campaign {
   return {
     id: r.id,
+    clientId: r.clientId,
     name: r.name,
     brief: r.brief,
     dna: r.dna,

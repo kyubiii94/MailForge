@@ -1,8 +1,25 @@
 import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
-import type { CampaignBrief, CampaignDNA, LayoutDescription, DesignSpecs } from '@/types';
+import type { CampaignBrief, CampaignDNA, LayoutDescription, DesignSpecs, Client } from '@/types';
+
+export const clients = pgTable('clients', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
+  name: text('name').notNull(),
+  sector: text('sector').notNull().default(''),
+  positioning: text('positioning').notNull().default(''),
+  website: text('website'),
+  socialLinks: jsonb('social_links').$type<Client['socialLinks']>().notNull().default({}),
+  distribution: jsonb('distribution').$type<string[]>().notNull().default([]),
+  toneOfVoice: jsonb('tone_of_voice').$type<Client['toneOfVoice']>().notNull().default({ style: '', language: [], do: [], dont: [] }),
+  technicalPrefs: jsonb('technical_prefs').$type<Client['technicalPrefs']>().notNull().default({ esp: null, mergeTagsFormat: '', darkMode: false, languages: [] }),
+  notes: text('notes').notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const campaigns = pgTable('campaigns', {
   id: uuid('id').defaultRandom().primaryKey(),
+  clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   brief: jsonb('brief').$type<CampaignBrief>().notNull(),
   dna: jsonb('dna').$type<CampaignDNA>().notNull(),
