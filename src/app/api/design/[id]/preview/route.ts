@@ -8,7 +8,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const design = db.getEmailDesign(params.id);
+  const design = await db.getEmailDesign(params.id);
   if (!design) {
     return NextResponse.json({ error: 'Design not found' }, { status: 404 });
   }

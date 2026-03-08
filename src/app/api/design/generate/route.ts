@@ -22,24 +22,24 @@ export async function POST(request: NextRequest) {
     const { campaignId, brandDnaId, textContentId, visualIds, variants } = parsed.data;
 
     // Fetch required data
-    const brandDNA = db.getBrandDNA(brandDnaId);
+    const brandDNA = await db.getBrandDNA(brandDnaId);
     if (!brandDNA) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
 
     // Fetch client if brand DNA has a clientId
-    const client = brandDNA.clientId ? db.getClient(brandDNA.clientId) : undefined;
+    const client = brandDNA.clientId ? await db.getClient(brandDNA.clientId) : undefined;
 
-    const textContent = db.getTextContent(textContentId);
+    const textContent = await db.getTextContent(textContentId);
     if (!textContent) {
       return NextResponse.json({ error: 'Text content not found' }, { status: 404 });
     }
 
     // Get visual URLs
-    const visualUrls = (visualIds || [])
-      .map((id) => db.getVisual(id))
-      .filter(Boolean)
-      .map((v) => v!.fileUrl);
+    const fetchedVisuals = await Promise.all(
+      (visualIds || []).map((id) => db.getVisual(id))
+    );
+    const visualUrls = fetchedVisuals.filter(Boolean).map((v) => v!.fileUrl);
 
     const designs = [];
     const variantCount = variants || 2;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           subject: textContent.subject,
         });
 
-        const design = db.createEmailDesign({
+        const design = await db.createEmailDesign({
           campaignId,
           variantNumber: i,
           htmlContent: html,
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update campaign status
-    db.updateCampaign(campaignId, { status: 'review', designMode: 'ai_generated' });
+    await db.updateCampaign(campaignId, { status: 'review', designMode: 'ai_generated' });
 
     return NextResponse.json(designs, { status: 201 });
   } catch (error) {

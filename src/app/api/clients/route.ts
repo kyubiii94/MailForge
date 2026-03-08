@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const data = parsed.data;
 
-    const client = db.createClient({
+    const client = await db.createClient({
       workspaceId: data.workspaceId,
       name: data.name,
       sector: data.sector,
@@ -59,6 +59,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
   }
 
-  const clients = db.listClients(workspaceId);
+  const clients = await db.listClients(workspaceId);
   return NextResponse.json(clients);
 }

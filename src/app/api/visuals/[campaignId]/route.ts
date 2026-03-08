@@ -8,6 +8,6 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { campaignId: string } }
 ) {
-  const visuals = db.getVisualsByCampaign(params.campaignId);
+  const visuals = await db.getVisualsByCampaign(params.campaignId);
   return NextResponse.json(visuals);
 }

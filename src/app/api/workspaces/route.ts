@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const workspace = db.createWorkspace(parsed.data.name);
+    const workspace = await db.createWorkspace(parsed.data.name);
     return NextResponse.json(workspace, { status: 201 });
   } catch (error) {
     console.error('Workspace creation error:', error);
@@ -29,6 +29,6 @@ export async function POST(request: NextRequest) {
  * GET /api/workspaces - List all workspaces.
  */
 export async function GET() {
-  const workspaces = db.listWorkspaces();
+  const workspaces = await db.listWorkspaces();
   return NextResponse.json(workspaces);
 }

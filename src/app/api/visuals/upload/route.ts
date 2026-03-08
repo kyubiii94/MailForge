@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       const base64 = buffer.toString('base64');
       const dataUrl = `data:${file.type};base64,${base64}`;
 
-      const visual = db.createVisual({
+      const visual = await db.createVisual({
         campaignId,
         fileUrl: dataUrl,
         fileKey: `${campaignId}/${fileId}`,

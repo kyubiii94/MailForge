@@ -12,7 +12,7 @@ export async function POST(
     const body = await request.json();
     const format = body.format || 'html';
 
-    const design = db.getEmailDesign(params.id);
+    const design = await db.getEmailDesign(params.id);
     if (!design) {
       return NextResponse.json({ error: 'Design not found' }, { status: 404 });
     }

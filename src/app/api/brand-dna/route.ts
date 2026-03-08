@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 4: Save to database
-    const brandDNA = db.createBrandDNA({
+    const brandDNA = await db.createBrandDNA({
       clientId: clientId || '',
       workspaceId: wsId,
       siteUrl,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
   const workspaceId = request.nextUrl.searchParams.get('workspaceId');
 
   if (clientId) {
-    const brandDNA = db.getBrandDNAByClient(clientId);
+    const brandDNA = await db.getBrandDNAByClient(clientId);
     if (!brandDNA) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'workspaceId or clientId is required' }, { status: 400 });
   }
 
-  const brandDNA = db.getBrandDNAByWorkspace(workspaceId);
+  const brandDNA = await db.getBrandDNAByWorkspace(workspaceId);
   if (!brandDNA) {
     return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
   }

@@ -9,7 +9,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const client = db.getClient(params.id);
+  const client = await db.getClient(params.id);
   if (!client) {
     return NextResponse.json({ error: 'Client not found' }, { status: 404 });
   }
@@ -34,7 +34,7 @@ export async function PATCH(
       );
     }
 
-    const updated = db.updateClient(params.id, parsed.data);
+    const updated = await db.updateClient(params.id, parsed.data);
     if (!updated) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
@@ -53,7 +53,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const deleted = db.deleteClient(params.id);
+  const deleted = await db.deleteClient(params.id);
   if (!deleted) {
     return NextResponse.json({ error: 'Client not found' }, { status: 404 });
   }

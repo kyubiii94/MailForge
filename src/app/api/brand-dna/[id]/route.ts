@@ -9,7 +9,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const brandDNA = db.getBrandDNA(params.id);
+  const brandDNA = await db.getBrandDNA(params.id);
   if (!brandDNA) {
     return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
   }
@@ -35,7 +35,7 @@ export async function PUT(
       );
     }
 
-    const updated = db.updateBrandDNA(params.id, parsed.data);
+    const updated = await db.updateBrandDNA(params.id, parsed.data);
     if (!updated) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }

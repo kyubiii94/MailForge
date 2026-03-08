@@ -1,8 +1,12 @@
 /**
- * In-memory database for MVP.
- * Replace with PostgreSQL (e.g., Drizzle ORM or Prisma) in production.
+ * Database layer backed by Neon PostgreSQL via Drizzle ORM.
+ * Maintains the same API surface as the previous in-memory implementation
+ * so all API routes work unchanged.
  */
 
+import { eq, desc, asc } from 'drizzle-orm';
+import { getDb } from './drizzle';
+import * as schema from './schema';
 import type {
   Workspace,
   Client,
@@ -14,227 +18,397 @@ import type {
 } from '@/types';
 import { generateId } from './utils';
 
-class InMemoryDB {
-  workspaces: Map<string, Workspace> = new Map();
-  clients: Map<string, Client> = new Map();
-  brandDNAs: Map<string, BrandDNA> = new Map();
-  campaigns: Map<string, Campaign> = new Map();
-  textContents: Map<string, TextContent> = new Map();
-  visuals: Map<string, Visual> = new Map();
-  emailDesigns: Map<string, EmailDesign> = new Map();
+// Helper: convert DB row timestamps to ISO strings for API compatibility
+function toIso(d: Date | null): string {
+  return d ? d.toISOString() : new Date().toISOString();
+}
 
-  constructor() {
-    // Seed with a default workspace
-    const defaultWorkspace: Workspace = {
-      id: '00000000-0000-0000-0000-000000000001',
-      name: 'Mon Workspace',
-      ownerId: 'default-user',
-      plan: 'free',
-      createdAt: new Date().toISOString(),
-    };
-    this.workspaces.set(defaultWorkspace.id, defaultWorkspace);
-  }
+// Helper: map a workspace row to the Workspace type
+function mapWorkspace(row: typeof schema.workspaces.$inferSelect): Workspace {
+  return {
+    id: row.id,
+    name: row.name,
+    ownerId: row.ownerId,
+    plan: row.plan as Workspace['plan'],
+    createdAt: toIso(row.createdAt),
+  };
+}
 
+function mapClient(row: typeof schema.clients.$inferSelect): Client {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    name: row.name,
+    sector: row.sector,
+    positioning: row.positioning,
+    website: row.website,
+    socialLinks: (row.socialLinks ?? {}) as Client['socialLinks'],
+    distribution: (row.distribution ?? []) as string[],
+    toneOfVoice: (row.toneOfVoice ?? { style: '', language: [], do: [], dont: [] }) as Client['toneOfVoice'],
+    technicalPrefs: (row.technicalPrefs ?? { esp: null, mergeTagsFormat: '', darkMode: true, languages: [] }) as Client['technicalPrefs'],
+    notes: row.notes,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function mapBrandDNA(row: typeof schema.brandDnas.$inferSelect): BrandDNA {
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    workspaceId: row.workspaceId,
+    siteUrl: row.siteUrl,
+    typography: row.typography as BrandDNA['typography'],
+    colors: row.colors as BrandDNA['colors'],
+    editorialTone: row.editorialTone as BrandDNA['editorialTone'],
+    visualStyle: row.visualStyle as BrandDNA['visualStyle'],
+    keywords: row.keywords as BrandDNA['keywords'],
+    isValidated: row.isValidated,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function mapCampaign(row: typeof schema.campaigns.$inferSelect): Campaign {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    clientId: row.clientId,
+    brandDnaId: row.brandDnaId,
+    name: row.name,
+    trigger: row.trigger,
+    objective: row.objective,
+    period: row.period as Campaign['period'],
+    status: row.status as Campaign['status'],
+    textSource: row.textSource as Campaign['textSource'],
+    visualSource: row.visualSource as Campaign['visualSource'],
+    designMode: row.designMode as Campaign['designMode'],
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+function mapTextContent(row: typeof schema.textContents.$inferSelect): TextContent {
+  return {
+    id: row.id,
+    campaignId: row.campaignId,
+    version: row.version,
+    subject: row.subject,
+    preheader: row.preheader,
+    headline: row.headline,
+    body: row.body,
+    ctaText: row.ctaText,
+    ctaUrl: row.ctaUrl,
+    sourceType: row.sourceType as TextContent['sourceType'],
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+function mapVisual(row: typeof schema.visuals.$inferSelect): Visual {
+  return {
+    id: row.id,
+    campaignId: row.campaignId,
+    fileUrl: row.fileUrl,
+    fileKey: row.fileKey,
+    originalFilename: row.originalFilename,
+    width: row.width,
+    height: row.height,
+    fileSize: row.fileSize,
+    altText: row.altText,
+    sourceType: row.sourceType as Visual['sourceType'],
+    isSelected: row.isSelected,
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+function mapEmailDesign(row: typeof schema.emailDesigns.$inferSelect): EmailDesign {
+  return {
+    id: row.id,
+    campaignId: row.campaignId,
+    variantNumber: row.variantNumber,
+    htmlContent: row.htmlContent,
+    mjmlSource: row.mjmlSource,
+    thumbnailUrl: row.thumbnailUrl,
+    deliverabilityScore: row.deliverabilityScore as EmailDesign['deliverabilityScore'],
+    createdAt: toIso(row.createdAt),
+  };
+}
+
+// ============================================================
+// Database class with the same method signatures as InMemoryDB
+// ============================================================
+
+class NeonDB {
   // --- Workspaces ---
-  createWorkspace(name: string, ownerId: string = 'default-user'): Workspace {
-    const workspace: Workspace = {
-      id: generateId(),
+  async createWorkspace(name: string, ownerId: string = 'default-user'): Promise<Workspace> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.workspaces).values({
+      id,
       name,
       ownerId,
       plan: 'free',
-      createdAt: new Date().toISOString(),
-    };
-    this.workspaces.set(workspace.id, workspace);
-    return workspace;
+    }).returning();
+    return mapWorkspace(row);
   }
 
-  getWorkspace(id: string): Workspace | undefined {
-    return this.workspaces.get(id);
+  async getWorkspace(id: string): Promise<Workspace | undefined> {
+    const [row] = await getDb().select().from(schema.workspaces).where(eq(schema.workspaces.id, id));
+    return row ? mapWorkspace(row) : undefined;
   }
 
-  listWorkspaces(): Workspace[] {
-    return Array.from(this.workspaces.values());
+  async listWorkspaces(): Promise<Workspace[]> {
+    const rows = await getDb().select().from(schema.workspaces);
+    return rows.map(mapWorkspace);
   }
 
   // --- Clients ---
-  createClient(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client {
-    const client: Client = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.clients.set(client.id, client);
-    return client;
+  async createClient(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.clients).values({
+      id,
+      workspaceId: data.workspaceId,
+      name: data.name,
+      sector: data.sector,
+      positioning: data.positioning,
+      website: data.website,
+      socialLinks: data.socialLinks,
+      distribution: data.distribution,
+      toneOfVoice: data.toneOfVoice,
+      technicalPrefs: data.technicalPrefs,
+      notes: data.notes,
+    }).returning();
+    return mapClient(row);
   }
 
-  getClient(id: string): Client | undefined {
-    return this.clients.get(id);
+  async getClient(id: string): Promise<Client | undefined> {
+    const [row] = await getDb().select().from(schema.clients).where(eq(schema.clients.id, id));
+    return row ? mapClient(row) : undefined;
   }
 
-  listClients(workspaceId: string): Client[] {
-    return Array.from(this.clients.values())
-      .filter((c) => c.workspaceId === workspaceId);
+  async listClients(workspaceId: string): Promise<Client[]> {
+    const rows = await getDb().select().from(schema.clients).where(eq(schema.clients.workspaceId, workspaceId));
+    return rows.map(mapClient);
   }
 
-  updateClient(id: string, data: Partial<Client>): Client | undefined {
-    const existing = this.clients.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
-    this.clients.set(id, updated);
-    return updated;
+  async updateClient(id: string, data: Partial<Client>): Promise<Client | undefined> {
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.sector !== undefined) updateData.sector = data.sector;
+    if (data.positioning !== undefined) updateData.positioning = data.positioning;
+    if (data.website !== undefined) updateData.website = data.website;
+    if (data.socialLinks !== undefined) updateData.socialLinks = data.socialLinks;
+    if (data.distribution !== undefined) updateData.distribution = data.distribution;
+    if (data.toneOfVoice !== undefined) updateData.toneOfVoice = data.toneOfVoice;
+    if (data.technicalPrefs !== undefined) updateData.technicalPrefs = data.technicalPrefs;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    const [row] = await getDb().update(schema.clients).set(updateData).where(eq(schema.clients.id, id)).returning();
+    return row ? mapClient(row) : undefined;
   }
 
-  deleteClient(id: string): boolean {
-    return this.clients.delete(id);
+  async deleteClient(id: string): Promise<boolean> {
+    const result = await getDb().delete(schema.clients).where(eq(schema.clients.id, id)).returning();
+    return result.length > 0;
   }
 
   // --- Brand DNA ---
-  createBrandDNA(data: Omit<BrandDNA, 'id' | 'createdAt' | 'updatedAt'>): BrandDNA {
-    const dna: BrandDNA = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.brandDNAs.set(dna.id, dna);
-    return dna;
+  async createBrandDNA(data: Omit<BrandDNA, 'id' | 'createdAt' | 'updatedAt'>): Promise<BrandDNA> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.brandDnas).values({
+      id,
+      clientId: data.clientId,
+      workspaceId: data.workspaceId,
+      siteUrl: data.siteUrl,
+      typography: data.typography,
+      colors: data.colors,
+      editorialTone: data.editorialTone,
+      visualStyle: data.visualStyle,
+      keywords: data.keywords,
+      isValidated: data.isValidated,
+    }).returning();
+    return mapBrandDNA(row);
   }
 
-  getBrandDNA(id: string): BrandDNA | undefined {
-    return this.brandDNAs.get(id);
+  async getBrandDNA(id: string): Promise<BrandDNA | undefined> {
+    const [row] = await getDb().select().from(schema.brandDnas).where(eq(schema.brandDnas.id, id));
+    return row ? mapBrandDNA(row) : undefined;
   }
 
-  getBrandDNAByWorkspace(workspaceId: string): BrandDNA | undefined {
-    return Array.from(this.brandDNAs.values()).find(
-      (dna) => dna.workspaceId === workspaceId
-    );
+  async getBrandDNAByWorkspace(workspaceId: string): Promise<BrandDNA | undefined> {
+    const [row] = await getDb().select().from(schema.brandDnas).where(eq(schema.brandDnas.workspaceId, workspaceId));
+    return row ? mapBrandDNA(row) : undefined;
   }
 
-  getBrandDNAByClient(clientId: string): BrandDNA | undefined {
-    return Array.from(this.brandDNAs.values()).find(
-      (dna) => dna.clientId === clientId
-    );
+  async getBrandDNAByClient(clientId: string): Promise<BrandDNA | undefined> {
+    const [row] = await getDb().select().from(schema.brandDnas).where(eq(schema.brandDnas.clientId, clientId));
+    return row ? mapBrandDNA(row) : undefined;
   }
 
-  updateBrandDNA(id: string, data: Partial<BrandDNA>): BrandDNA | undefined {
-    const existing = this.brandDNAs.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
-    this.brandDNAs.set(id, updated);
-    return updated;
+  async updateBrandDNA(id: string, data: Partial<BrandDNA>): Promise<BrandDNA | undefined> {
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.siteUrl !== undefined) updateData.siteUrl = data.siteUrl;
+    if (data.typography !== undefined) updateData.typography = data.typography;
+    if (data.colors !== undefined) updateData.colors = data.colors;
+    if (data.editorialTone !== undefined) updateData.editorialTone = data.editorialTone;
+    if (data.visualStyle !== undefined) updateData.visualStyle = data.visualStyle;
+    if (data.keywords !== undefined) updateData.keywords = data.keywords;
+    if (data.isValidated !== undefined) updateData.isValidated = data.isValidated;
+
+    const [row] = await getDb().update(schema.brandDnas).set(updateData).where(eq(schema.brandDnas.id, id)).returning();
+    return row ? mapBrandDNA(row) : undefined;
   }
 
   // --- Campaigns ---
-  createCampaign(data: Omit<Campaign, 'id' | 'createdAt'>): Campaign {
-    const campaign: Campaign = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    this.campaigns.set(campaign.id, campaign);
-    return campaign;
+  async createCampaign(data: Omit<Campaign, 'id' | 'createdAt'>): Promise<Campaign> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.campaigns).values({
+      id,
+      workspaceId: data.workspaceId,
+      clientId: data.clientId,
+      brandDnaId: data.brandDnaId,
+      name: data.name,
+      trigger: data.trigger,
+      objective: data.objective,
+      period: data.period,
+      status: data.status,
+      textSource: data.textSource,
+      visualSource: data.visualSource,
+      designMode: data.designMode,
+    }).returning();
+    return mapCampaign(row);
   }
 
-  getCampaign(id: string): Campaign | undefined {
-    return this.campaigns.get(id);
+  async getCampaign(id: string): Promise<Campaign | undefined> {
+    const [row] = await getDb().select().from(schema.campaigns).where(eq(schema.campaigns.id, id));
+    return row ? mapCampaign(row) : undefined;
   }
 
-  listCampaigns(workspaceId: string): Campaign[] {
-    return Array.from(this.campaigns.values()).filter(
-      (c) => c.workspaceId === workspaceId
-    );
+  async listCampaigns(workspaceId: string): Promise<Campaign[]> {
+    const rows = await getDb().select().from(schema.campaigns).where(eq(schema.campaigns.workspaceId, workspaceId));
+    return rows.map(mapCampaign);
   }
 
-  listCampaignsByClient(clientId: string): Campaign[] {
-    return Array.from(this.campaigns.values()).filter(
-      (c) => c.clientId === clientId
-    );
+  async listCampaignsByClient(clientId: string): Promise<Campaign[]> {
+    const rows = await getDb().select().from(schema.campaigns).where(eq(schema.campaigns.clientId, clientId));
+    return rows.map(mapCampaign);
   }
 
-  updateCampaign(id: string, data: Partial<Campaign>): Campaign | undefined {
-    const existing = this.campaigns.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data };
-    this.campaigns.set(id, updated);
-    return updated;
+  async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign | undefined> {
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.trigger !== undefined) updateData.trigger = data.trigger;
+    if (data.objective !== undefined) updateData.objective = data.objective;
+    if (data.period !== undefined) updateData.period = data.period;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.textSource !== undefined) updateData.textSource = data.textSource;
+    if (data.visualSource !== undefined) updateData.visualSource = data.visualSource;
+    if (data.designMode !== undefined) updateData.designMode = data.designMode;
+    if (data.brandDnaId !== undefined) updateData.brandDnaId = data.brandDnaId;
+
+    const [row] = await getDb().update(schema.campaigns).set(updateData).where(eq(schema.campaigns.id, id)).returning();
+    return row ? mapCampaign(row) : undefined;
   }
 
   // --- Text Contents ---
-  createTextContent(data: Omit<TextContent, 'id' | 'createdAt'>): TextContent {
-    const content: TextContent = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    this.textContents.set(content.id, content);
-    return content;
+  async createTextContent(data: Omit<TextContent, 'id' | 'createdAt'>): Promise<TextContent> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.textContents).values({
+      id,
+      campaignId: data.campaignId,
+      version: data.version,
+      subject: data.subject,
+      preheader: data.preheader,
+      headline: data.headline,
+      body: data.body,
+      ctaText: data.ctaText,
+      ctaUrl: data.ctaUrl,
+      sourceType: data.sourceType,
+    }).returning();
+    return mapTextContent(row);
   }
 
-  getTextContent(id: string): TextContent | undefined {
-    return this.textContents.get(id);
+  async getTextContent(id: string): Promise<TextContent | undefined> {
+    const [row] = await getDb().select().from(schema.textContents).where(eq(schema.textContents.id, id));
+    return row ? mapTextContent(row) : undefined;
   }
 
-  getTextContentsByCampaign(campaignId: string): TextContent[] {
-    return Array.from(this.textContents.values())
-      .filter((t) => t.campaignId === campaignId)
-      .sort((a, b) => b.version - a.version);
+  async getTextContentsByCampaign(campaignId: string): Promise<TextContent[]> {
+    const rows = await getDb().select().from(schema.textContents)
+      .where(eq(schema.textContents.campaignId, campaignId))
+      .orderBy(desc(schema.textContents.version));
+    return rows.map(mapTextContent);
   }
 
   // --- Visuals ---
-  createVisual(data: Omit<Visual, 'id' | 'createdAt'>): Visual {
-    const visual: Visual = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    this.visuals.set(visual.id, visual);
-    return visual;
+  async createVisual(data: Omit<Visual, 'id' | 'createdAt'>): Promise<Visual> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.visuals).values({
+      id,
+      campaignId: data.campaignId,
+      fileUrl: data.fileUrl,
+      fileKey: data.fileKey,
+      originalFilename: data.originalFilename,
+      width: data.width,
+      height: data.height,
+      fileSize: data.fileSize,
+      altText: data.altText,
+      sourceType: data.sourceType,
+      isSelected: data.isSelected,
+    }).returning();
+    return mapVisual(row);
   }
 
-  getVisual(id: string): Visual | undefined {
-    return this.visuals.get(id);
+  async getVisual(id: string): Promise<Visual | undefined> {
+    const [row] = await getDb().select().from(schema.visuals).where(eq(schema.visuals.id, id));
+    return row ? mapVisual(row) : undefined;
   }
 
-  getVisualsByCampaign(campaignId: string): Visual[] {
-    return Array.from(this.visuals.values()).filter(
-      (v) => v.campaignId === campaignId
-    );
+  async getVisualsByCampaign(campaignId: string): Promise<Visual[]> {
+    const rows = await getDb().select().from(schema.visuals).where(eq(schema.visuals.campaignId, campaignId));
+    return rows.map(mapVisual);
   }
 
-  updateVisual(id: string, data: Partial<Visual>): Visual | undefined {
-    const existing = this.visuals.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data };
-    this.visuals.set(id, updated);
-    return updated;
+  async updateVisual(id: string, data: Partial<Visual>): Promise<Visual | undefined> {
+    const updateData: Record<string, unknown> = {};
+    if (data.fileUrl !== undefined) updateData.fileUrl = data.fileUrl;
+    if (data.altText !== undefined) updateData.altText = data.altText;
+    if (data.isSelected !== undefined) updateData.isSelected = data.isSelected;
+
+    const [row] = await getDb().update(schema.visuals).set(updateData).where(eq(schema.visuals.id, id)).returning();
+    return row ? mapVisual(row) : undefined;
   }
 
-  deleteVisual(id: string): boolean {
-    return this.visuals.delete(id);
+  async deleteVisual(id: string): Promise<boolean> {
+    const result = await getDb().delete(schema.visuals).where(eq(schema.visuals.id, id)).returning();
+    return result.length > 0;
   }
 
   // --- Email Designs ---
-  createEmailDesign(data: Omit<EmailDesign, 'id' | 'createdAt'>): EmailDesign {
-    const design: EmailDesign = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    this.emailDesigns.set(design.id, design);
-    return design;
+  async createEmailDesign(data: Omit<EmailDesign, 'id' | 'createdAt'>): Promise<EmailDesign> {
+    const id = generateId();
+    const [row] = await getDb().insert(schema.emailDesigns).values({
+      id,
+      campaignId: data.campaignId,
+      variantNumber: data.variantNumber,
+      htmlContent: data.htmlContent,
+      mjmlSource: data.mjmlSource,
+      thumbnailUrl: data.thumbnailUrl,
+      deliverabilityScore: data.deliverabilityScore,
+    }).returning();
+    return mapEmailDesign(row);
   }
 
-  getEmailDesign(id: string): EmailDesign | undefined {
-    return this.emailDesigns.get(id);
+  async getEmailDesign(id: string): Promise<EmailDesign | undefined> {
+    const [row] = await getDb().select().from(schema.emailDesigns).where(eq(schema.emailDesigns.id, id));
+    return row ? mapEmailDesign(row) : undefined;
   }
 
-  getDesignsByCampaign(campaignId: string): EmailDesign[] {
-    return Array.from(this.emailDesigns.values())
-      .filter((d) => d.campaignId === campaignId)
-      .sort((a, b) => a.variantNumber - b.variantNumber);
+  async getDesignsByCampaign(campaignId: string): Promise<EmailDesign[]> {
+    const rows = await getDb().select().from(schema.emailDesigns)
+      .where(eq(schema.emailDesigns.campaignId, campaignId))
+      .orderBy(asc(schema.emailDesigns.variantNumber));
+    return rows.map(mapEmailDesign);
   }
 }
 
 // Singleton instance
-export const db = new InMemoryDB();
+export const db = new NeonDB();

@@ -8,6 +8,6 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { campaignId: string } }
 ) {
-  const versions = db.getTextContentsByCampaign(params.campaignId);
+  const versions = await db.getTextContentsByCampaign(params.campaignId);
   return NextResponse.json(versions);
 }

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const { workspaceId, clientId, brandDnaId, name, trigger, objective, period } = parsed.data;
 
-    const campaign = db.createCampaign({
+    const campaign = await db.createCampaign({
       workspaceId,
       clientId,
       brandDnaId,
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
   }
 
-  let campaigns = db.listCampaigns(workspaceId);
+  let campaigns = await db.listCampaigns(workspaceId);
 
   // Filter by client if provided
   if (clientId) {

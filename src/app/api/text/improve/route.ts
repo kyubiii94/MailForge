@@ -21,16 +21,16 @@ export async function POST(request: NextRequest) {
     const { draft, brandDnaId, campaignId, campaignGoal, desiredCTA, targetLength, tone } = parsed.data;
 
     // Fetch brand DNA
-    const brandDNA = db.getBrandDNA(brandDnaId);
+    const brandDNA = await db.getBrandDNA(brandDnaId);
     if (!brandDNA) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
 
     // Fetch client if brand DNA has a clientId
-    const client = brandDNA.clientId ? db.getClient(brandDNA.clientId) : undefined;
+    const client = brandDNA.clientId ? await db.getClient(brandDNA.clientId) : undefined;
 
     // Fetch campaign for trigger info
-    const campaign = db.getCampaign(campaignId);
+    const campaign = await db.getCampaign(campaignId);
 
     // Call Claude AI
     const improved = await improveEmailDraft({
@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Save AI-generated text to database
-    const existingVersions = db.getTextContentsByCampaign(campaignId);
+    const existingVersions = await db.getTextContentsByCampaign(campaignId);
     const version = existingVersions.length + 1;
 
-    const textContent = db.createTextContent({
+    const textContent = await db.createTextContent({
       campaignId,
       version,
       subject: improved.subject,

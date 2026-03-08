@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
     const ctaText = lastLine.length < 40 && lines.length > 3 ? lastLine : 'En savoir plus';
 
     // Get existing versions count
-    const existingVersions = db.getTextContentsByCampaign(campaignId);
+    const existingVersions = await db.getTextContentsByCampaign(campaignId);
     const version = existingVersions.length + 1;
 
-    const textContent = db.createTextContent({
+    const textContent = await db.createTextContent({
       campaignId,
       version,
       subject,
