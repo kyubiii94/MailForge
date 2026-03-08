@@ -9,6 +9,15 @@ import type { NewsletterTemplate, Campaign } from '@/types';
 
 type Tab = 'preview' | 'html' | 'mjml' | 'specs';
 
+/** Force light color-scheme in preview so the email is not rendered all black in dark mode. */
+function getPreviewHtml(htmlCode: string): string {
+  if (!htmlCode?.trim()) return '';
+  return htmlCode.replace(
+    /<head(\s[^>]*)?>/i,
+    (match) => `${match}<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">`
+  );
+}
+
 export default function TemplatePage() {
   const params = useParams();
   const router = useRouter();
@@ -178,7 +187,7 @@ export default function TemplatePage() {
               style={{ width: previewMode === 'desktop' ? 600 : 375 }}
             >
               <iframe
-                srcDoc={template.htmlCode}
+                srcDoc={getPreviewHtml(template.htmlCode)}
                 title={`Preview ${template.templateType}`}
                 className="w-full border-0"
                 style={{ height: 800, width: '100%' }}

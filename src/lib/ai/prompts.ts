@@ -168,6 +168,11 @@ RÈGLES STRICTES POUR LE CODE HTML :
 - Lien unsubscribe dans le footer
 - Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder type https://via.placeholder.com)
 
+CONTENU ET LISIBILITÉ OBLIGATOIRES :
+- En mode clair (défaut), le fond principal du corps doit être la couleur "background" de la palette (ex: ${dna.palette.background}), le texte en couleur "text" (ex: ${dna.palette.text}). Ne JAMAIS produire un email entièrement noir ou sans contenu lisible.
+- Le corps de l'email doit contenir : (1) une section hero avec image ou titre accrocheur, (2) au moins une section de texte avec du copy concret (titres, paragraphes) en rapport avec la marque et l'objectif, (3) un ou plusieurs CTA visibles (boutons ou liens), (4) un footer avec liens et désinscription.
+- Rédiger du vrai copy : titres, accroches et CTA en lien direct avec l'objet de la campagne et la marque (ex. pour un lancement produit : nom du produit, bénéfices, "Découvrir", "Voir la collection"). Pas de "Lorem ipsum" ni de contenu vide.
+
 POUR LE MJML :
 - Utilise les balises MJML standard : <mjml>, <mj-head>, <mj-body>, <mj-section>, <mj-column>, <mj-text>, <mj-button>, <mj-image>
 - Inclure les attributs de style correspondant au design system
@@ -246,6 +251,10 @@ RÈGLES HTML (identiques au master) :
 - Réutiliser le <head> du master template
 - Le contenu doit être RÉALISTE pour une marque "${dna.marque.name}" dans le secteur "${dna.marque.sector}"
 - Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder)
+
+CONTENU ET LISIBILITÉ OBLIGATOIRES :
+- En mode clair (défaut), fond du corps = couleur background (${dna.palette.background}), texte = couleur text (${dna.palette.text}). Ne jamais produire un email entièrement noir ou vide.
+- Inclure : hero (image ou titre), sections de corps avec copy concret (titres, paragraphes, CTA) en lien avec l'objectif "${dna.objectif}" et la marque ${dna.marque.name}. Rédiger du vrai texte, pas de placeholder.
 
 COHÉRENCE :
 - Même font-stack que le master template
