@@ -45,8 +45,11 @@ export default function TemplatePage() {
       const data = await res.json();
       setTemplate(data.template);
       setCampaign(data.campaign);
-    } catch {
-      setError('Impossible de charger le template');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes('Failed to fetch')
+        ? 'Impossible de charger le template. Vérifiez votre connexion et que la campagne existe.'
+        : `Chargement impossible : ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -58,17 +61,42 @@ export default function TemplatePage() {
     setIsRegenerating(true);
     setError('');
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 95000);
+
       const res = await fetch(`/api/campaign/${campaignId}/template/${templateNum}/regenerate`, {
         method: 'POST',
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Erreur de régénération');
+      clearTimeout(timeoutId);
+
+      let data: { template?: NewsletterTemplate; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status >= 500) {
+          setError('Le serveur a mis trop de temps à répondre (timeout possible sur Vercel). Réessayez ou régénérez un template à la fois.');
+        } else {
+          setError('Réponse serveur invalide. Réessayez.');
+        }
         return;
       }
-      setTemplate(data.template);
-    } catch {
-      setError('Erreur de connexion');
+
+      if (!res.ok) {
+        setError(data.error || 'Erreur de régénération');
+        if (res.status === 503 && data.error?.toLowerCase().includes('gemini')) {
+          setError(`${data.error} Vérifiez GEMINI_API_KEY dans Vercel (Environment Variables).`);
+        }
+        return;
+      }
+      if (data.template) setTemplate(data.template);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('abort') || (err instanceof Error && err.name === 'AbortError')) {
+        setError('La régénération a pris trop de temps. Sur Vercel (offre gratuite), la limite est d’environ 60 secondes. Réessayez.');
+      } else {
+        setError('Erreur de connexion. Vérifiez votre réseau et que GEMINI_API_KEY est configurée (Vercel ou .env).');
+      }
     } finally {
       setIsRegenerating(false);
     }
@@ -301,8 +329,14 @@ export default function TemplatePage() {
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm space-y-1">
+          <p className="font-medium">Erreur</p>
+          <p>{error}</p>
+          {(error.includes('GEMINI') || error.includes('timeout') || error.includes('Vercel')) && (
+            <p className="mt-2 text-red-600 text-xs">
+              Vérifiez GEMINI_API_KEY dans Vercel (Environment Variables) et réessayez.
+            </p>
+          )}
         </div>
       )}
     </div>

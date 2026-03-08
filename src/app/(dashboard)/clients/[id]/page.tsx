@@ -42,11 +42,25 @@ export default function ClientDetailPage() {
     setAnalyzeError(null);
     try {
       const res = await fetch(`/api/clients/${id}/analyze`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur lors de l\'analyse');
-      setClient(data.client);
+      let data: { client?: typeof client; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        setAnalyzeError(res.status >= 500
+          ? 'Le serveur a mis trop de temps ou est indisponible. Vérifiez GEMINI_API_KEY sur Vercel et réessayez.'
+          : 'Réponse serveur invalide. Réessayez.');
+        return;
+      }
+      if (!res.ok) {
+        setAnalyzeError(data.error || 'Erreur lors de l\'analyse du site.');
+        return;
+      }
+      setClient(data.client ?? null);
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : 'Erreur inconnue');
+      const msg = err instanceof Error ? err.message : String(err);
+      setAnalyzeError(msg.includes('Failed to fetch')
+        ? 'Impossible de joindre le serveur. Vérifiez votre connexion.'
+        : msg);
     } finally {
       setAnalyzing(false);
     }
@@ -131,7 +145,13 @@ export default function ClientDetailPage() {
         <p className="text-xs text-surface-400 mt-4">Créé le {formatDate(client.createdAt)}</p>
 
         {analyzeError && (
-          <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{analyzeError}</p>
+          <div className="mt-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm space-y-1">
+            <p className="font-medium">Erreur d’analyse</p>
+            <p>{analyzeError}</p>
+            {analyzeError.toLowerCase().includes('gemini') && (
+              <p className="mt-2 text-red-600 text-xs">Vérifiez GEMINI_API_KEY dans Vercel (Environment Variables).</p>
+            )}
+          </div>
         )}
       </Card>
 

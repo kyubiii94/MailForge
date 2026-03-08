@@ -27,20 +27,27 @@ export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCampaigns();
   }, []);
 
   const fetchCampaigns = async () => {
+    setError(null);
     try {
       const res = await fetch('/api/campaigns');
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setCampaigns(data.campaigns || []);
+      } else {
+        setError(data.error || `Erreur ${res.status} : impossible de charger les campagnes.`);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes('Failed to fetch')
+        ? 'Impossible de joindre le serveur. Vérifiez votre connexion et que DATABASE_URL est configurée.'
+        : `Erreur : ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -48,6 +55,15 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-8">
+      {error && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+          <p className="font-medium">Erreur</p>
+          <p>{error}</p>
+          <button type="button" onClick={() => fetchCampaigns()} className="mt-2 text-red-600 underline text-xs">
+            Réessayer
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">

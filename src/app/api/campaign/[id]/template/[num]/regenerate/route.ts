@@ -44,8 +44,16 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   }
 
   let siteContent: SiteContent | null = null;
-  const siteUrl = await resolveSiteUrl(campaign);
-  if (siteUrl) siteContent = await fetchSiteContent(siteUrl);
+  try {
+    const siteUrl = await resolveSiteUrl(campaign);
+    if (siteUrl) {
+      const crawlPromise = fetchSiteContent(siteUrl);
+      const timeout = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('crawl_timeout')), 12000));
+      siteContent = await Promise.race([crawlPromise, timeout]);
+    }
+  } catch {
+    siteContent = null;
+  }
 
   try {
     let data;

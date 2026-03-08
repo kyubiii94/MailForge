@@ -44,15 +44,17 @@ export default function NewClientPage() {
           technicalPrefs: DEFAULT_PREFS,
         }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Erreur lors de la création');
+        setError(data.error || 'Erreur lors de la création du client.');
         return;
       }
-      const client = await res.json();
-      router.push(`/clients/${client.id}`);
-    } catch {
-      setError('Erreur de connexion');
+      router.push(`/clients/${data.id}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes('Failed to fetch')
+        ? 'Impossible de joindre le serveur. Vérifiez votre connexion et que l\'application tourne.'
+        : `Erreur : ${msg}`);
     } finally {
       setLoading(false);
     }

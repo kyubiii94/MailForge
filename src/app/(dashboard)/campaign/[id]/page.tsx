@@ -348,8 +348,14 @@ export default function CampaignPage() {
       </Card>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm space-y-1">
+          <p className="font-medium">Erreur</p>
+          <p>{error}</p>
+          {(error.includes('GEMINI') || error.includes('timeout') || error.includes('Vercel')) && (
+            <p className="mt-2 text-red-600 text-xs">
+              Conseil : vérifiez GEMINI_API_KEY dans Vercel (Environment Variables) et que le déploiement a bien été refait après ajout des variables.
+            </p>
+          )}
         </div>
       )}
 

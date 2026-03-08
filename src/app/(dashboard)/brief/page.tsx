@@ -95,15 +95,32 @@ function BriefPageContent() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Erreur lors de la génération');
+      let data: { campaign?: { id: string }; error?: string; warnings?: string[] };
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status >= 500) {
+          setError('Le serveur a mis trop de temps à répondre ou est indisponible. Réessayez dans quelques instants. Sur Vercel, vérifiez que GEMINI_API_KEY et DATABASE_URL sont configurées.');
+        } else {
+          setError('Réponse serveur invalide. Réessayez.');
+        }
         return;
       }
 
-      router.push(`/campaign/${data.campaign.id}`);
-    } catch {
-      setError('Erreur de connexion au serveur');
+      if (!res.ok) {
+        const msg = data.error || 'Erreur lors de la génération de l\'ADN.';
+        setError(res.status === 503 && msg.toLowerCase().includes('gemini')
+          ? `${msg} Ajoutez GEMINI_API_KEY dans Vercel → Settings → Environment Variables (Production), puis redéployez.`
+          : msg);
+        return;
+      }
+
+      router.push(`/campaign/${data.campaign!.id}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg.includes('Failed to fetch') || msg.includes('NetworkError')
+        ? 'Impossible de joindre le serveur. Vérifiez votre connexion internet et que l\'application est bien démarrée.'
+        : `Erreur inattendue : ${msg}`);
     } finally {
       setIsLoading(false);
     }
@@ -259,8 +276,14 @@ function BriefPageContent() {
         )}
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            {error}
+          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm space-y-1">
+            <p className="font-medium">Erreur</p>
+            <p>{error}</p>
+            {(error.includes('GEMINI') || error.includes('Vercel') || error.includes('DATABASE')) && (
+              <p className="mt-2 text-red-600 text-xs">
+                Vérifiez les variables d’environnement (GEMINI_API_KEY, DATABASE_URL) dans Vercel → Settings → Environment Variables, puis redéployez.
+              </p>
+            )}
           </div>
         )}
 
