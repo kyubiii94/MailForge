@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TEMPLATE_TYPES } from '@/lib/constants';
 import type { Campaign, NewsletterTemplate } from '@/types';
-import { ExternalLink, Eye, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Eye, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react';
 
 export default function CampaignPage() {
   const params = useParams();
@@ -22,8 +22,28 @@ export default function CampaignPage() {
   const [generationErrors, setGenerationErrors] = useState<{ templateNumber: number; error: string }[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const abortRef = useRef(false);
+
+  async function handleDeleteCampaign() {
+    if (!confirm('Supprimer cette campagne et tous ses templates ? Cette action est irréversible.')) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/campaign/${campaignId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Impossible de supprimer la campagne');
+        return;
+      }
+      router.push('/campaigns');
+    } catch {
+      setError('Erreur de connexion lors de la suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   const fetchCampaign = useCallback(async (silent = false) => {
     try {
@@ -76,11 +96,6 @@ export default function CampaignPage() {
         body: JSON.stringify({ status: 'generating', selectedTemplateTypes: typesToGenerate }),
       });
       setCampaign((prev) => prev ? { ...prev, status: 'generating', selectedTemplateTypes: typesToGenerate } : null);
-
-      await fetch(`/api/campaign/${campaignId}/generate-one`, {
-        method: 'DELETE',
-      }).catch(() => {});
-
     } catch {
       // continue anyway
     }
@@ -214,9 +229,21 @@ export default function CampaignPage() {
             Campagne {campaign.status === 'generated' ? 'générée' : campaign.status === 'generating' ? 'en cours...' : 'prête'}
           </p>
         </div>
-        <Badge variant={campaign.status === 'generated' ? 'success' : campaign.status === 'generating' ? 'warning' : 'default'}>
-          {campaign.status === 'generated' ? 'Générée' : campaign.status === 'generating' ? 'En cours' : 'ADN prêt'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={campaign.status === 'generated' ? 'success' : campaign.status === 'generating' ? 'warning' : 'default'}>
+            {campaign.status === 'generated' ? 'Générée' : campaign.status === 'generating' ? 'En cours' : 'ADN prêt'}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+            onClick={handleDeleteCampaign}
+            disabled={isDeleting || isGenerating}
+          >
+            <Trash2 className="w-4 h-4" />
+            Supprimer la campagne
+          </Button>
+        </div>
       </div>
 
       {/* DNA Summary */}

@@ -29,3 +29,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   return NextResponse.json({ campaign: updated });
 }
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const campaign = await db.getCampaign(id);
+  if (!campaign) {
+    return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
+  }
+  await db.deleteCampaign(id);
+  return NextResponse.json({ ok: true });
+}

@@ -45,7 +45,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const selectedTypes: number[] = body.selectedTypes || campaign.selectedTemplateTypes || [1, 2, 3, 4, 8];
 
   await db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
-  await db.deleteTemplatesByCampaign(id);
 
   const siteContent = await buildSiteContentFromClient(campaign.clientId);
 
@@ -67,10 +66,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         masterHeadHtml = headMatch ? headMatch[0] : '';
 
         if (selectedTypes.includes(8)) {
-          await db.createTemplate({
-            campaignId: id,
-            templateNumber: 8,
-            templateType: 'Campaign Master Template',
+          const existing8 = await db.getTemplateByCampaignAndNumber(id, 8);
+          const payload = {
             subjectLine: masterData.subjectLine || '',
             previewText: masterData.previewText || '',
             layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
@@ -80,7 +77,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             darkModeOverrides: masterData.darkModeOverrides || '',
             accessibilityNotes: masterData.accessibilityNotes || '',
             coherenceTips: masterData.coherenceTips || '',
-          });
+          };
+          if (existing8) await db.updateTemplate(existing8.id, payload);
+          else await db.createTemplate({ campaignId: id, templateNumber: 8, templateType: 'Campaign Master Template', ...payload });
           results.push({ templateNumber: 8, status: 'ok' });
         }
       } catch (err) {
@@ -99,10 +98,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       try {
         const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, null);
 
-        await db.createTemplate({
-          campaignId: id,
-          templateNumber: num,
-          templateType: typeInfo.type,
+        const payload = {
           subjectLine: data.subjectLine || '',
           previewText: data.previewText || '',
           layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
@@ -112,7 +108,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           darkModeOverrides: data.darkModeOverrides || '',
           accessibilityNotes: data.accessibilityNotes || '',
           coherenceTips: data.coherenceTips || '',
-        });
+        };
+        const existing = await db.getTemplateByCampaignAndNumber(id, num);
+        if (existing) await db.updateTemplate(existing.id, payload);
+        else await db.createTemplate({ campaignId: id, templateNumber: num, templateType: typeInfo.type, ...payload });
         results.push({ templateNumber: num, status: 'ok' });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

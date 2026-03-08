@@ -29,16 +29,6 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
   };
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const campaign = await db.getCampaign(id);
-  if (!campaign) {
-    return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
-  }
-  await db.deleteTemplatesByCampaign(id);
-  return NextResponse.json({ ok: true });
-}
-
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const campaign = await db.getCampaign(id);
@@ -73,20 +63,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const headHtml = headMatch ? headMatch[0] : '';
 
-      const template = await db.createTemplate({
-        campaignId: id,
-        templateNumber: 8,
-        templateType: 'Campaign Master Template',
-        subjectLine: masterData.subjectLine || '',
-        previewText: masterData.previewText || '',
-        layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
-        designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
-        htmlCode: masterData.htmlCode || '',
-        mjmlCode: '',
-        darkModeOverrides: masterData.darkModeOverrides || '',
-        accessibilityNotes: masterData.accessibilityNotes || '',
-        coherenceTips: masterData.coherenceTips || '',
-      });
+      const existing = await db.getTemplateByCampaignAndNumber(id, 8);
+      const template = existing
+        ? (await db.updateTemplate(existing.id, {
+            subjectLine: masterData.subjectLine || '',
+            previewText: masterData.previewText || '',
+            layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
+            designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
+            htmlCode: masterData.htmlCode || '',
+            mjmlCode: '',
+            darkModeOverrides: masterData.darkModeOverrides || '',
+            accessibilityNotes: masterData.accessibilityNotes || '',
+            coherenceTips: masterData.coherenceTips || '',
+          }))!
+        : await db.createTemplate({
+            campaignId: id,
+            templateNumber: 8,
+            templateType: 'Campaign Master Template',
+            subjectLine: masterData.subjectLine || '',
+            previewText: masterData.previewText || '',
+            layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
+            designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
+            htmlCode: masterData.htmlCode || '',
+            mjmlCode: '',
+            darkModeOverrides: masterData.darkModeOverrides || '',
+            accessibilityNotes: masterData.accessibilityNotes || '',
+            coherenceTips: masterData.coherenceTips || '',
+          });
 
       return NextResponse.json({
         status: 'ok',
@@ -104,20 +107,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.log(`[GenerateOne] Generating template #${templateNumber} (${typeInfo.type}) for campaign ${id}...`);
     const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber, null);
 
-    const template = await db.createTemplate({
-      campaignId: id,
-      templateNumber,
-      templateType: typeInfo.type,
-      subjectLine: data.subjectLine || '',
-      previewText: data.previewText || '',
-      layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
-      designSpecs: data.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
-      htmlCode: data.htmlCode || '',
-      mjmlCode: '',
-      darkModeOverrides: data.darkModeOverrides || '',
-      accessibilityNotes: data.accessibilityNotes || '',
-      coherenceTips: data.coherenceTips || '',
-    });
+    const existing = await db.getTemplateByCampaignAndNumber(id, templateNumber);
+    const template = existing
+      ? (await db.updateTemplate(existing.id, {
+          subjectLine: data.subjectLine || '',
+          previewText: data.previewText || '',
+          layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
+          designSpecs: data.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
+          htmlCode: data.htmlCode || '',
+          mjmlCode: '',
+          darkModeOverrides: data.darkModeOverrides || '',
+          accessibilityNotes: data.accessibilityNotes || '',
+          coherenceTips: data.coherenceTips || '',
+        }))!
+      : await db.createTemplate({
+          campaignId: id,
+          templateNumber,
+          templateType: typeInfo.type,
+          subjectLine: data.subjectLine || '',
+          previewText: data.previewText || '',
+          layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
+          designSpecs: data.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
+          htmlCode: data.htmlCode || '',
+          mjmlCode: '',
+          darkModeOverrides: data.darkModeOverrides || '',
+          accessibilityNotes: data.accessibilityNotes || '',
+          coherenceTips: data.coherenceTips || '',
+        });
 
     return NextResponse.json({ status: 'ok', template });
   } catch (err) {

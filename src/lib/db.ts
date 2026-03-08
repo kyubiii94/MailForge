@@ -113,6 +113,12 @@ export const db = {
     return row ? rowToCampaign(row) : undefined;
   },
 
+  async deleteCampaign(id: string): Promise<void> {
+    const d = getDb();
+    await d.delete(schema.templates).where(eq(schema.templates.campaignId, id));
+    await d.delete(schema.campaigns).where(eq(schema.campaigns.id, id));
+  },
+
   // ─── Templates ──────────────────────────────────────────────────────────────
 
   async createTemplate(data: Omit<NewsletterTemplate, 'id' | 'createdAt'>): Promise<NewsletterTemplate> {
