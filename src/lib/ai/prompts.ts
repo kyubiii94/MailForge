@@ -153,6 +153,15 @@ Réponds en JSON avec cette structure exacte :
   "coherenceTips": "conseils pour maintenir la cohérence avec les autres emails"
 }
 
+STRUCTURE MINIMALE OBLIGATOIRE — Le champ "htmlCode" doit contenir un document HTML COMPLET (pas de troncature, pas de commentaire "voir ailleurs"). Inclus obligatoirement :
+1. <!DOCTYPE html><html><head><meta charset="utf-8"><title>...</title></head><body style="margin:0;padding:0;">
+2. Une table principale width="600" align="center" avec style="background-color:${dna.palette.background};" et des <tr><td> pour chaque section.
+3. Section HERO : une <td> avec soit une <img src="URL" alt="..." style="display:block;max-width:100%;" /> (utiliser une URL du CONTENU RÉEL DU SITE si fourni), soit un <h1> style="color:${dna.palette.text};font-size:28px;" avec l'accroche (ex. nom du produit ou de la marque).
+4. Section TEXTE : au moins une <td> avec <p style="color:${dna.palette.text};font-size:16px;line-height:24px;"> contenant 2-4 phrases concrètes sur la marque / l'objectif (ex. lancement t-shirt, qualité, durabilité).
+5. Section CTA : une <td> avec <a href="#" style="display:inline-block;background-color:${dna.palette.primary};color:#fff;padding:14px 28px;text-decoration:none;border-radius:4px;">Découvrir</a> (ou texte équivalent).
+6. Section FOOTER : une <td> avec au minimum "Se désabonner" et l'adresse ou le nom de la marque.
+La chaîne htmlCode doit faire au moins 1500 caractères. Tout le code doit être dans cette seule chaîne JSON.
+
 RÈGLES STRICTES POUR LE CODE HTML :
 - Structure : Table-based layout (pas de div pour la structure)
 - <!DOCTYPE html> avec xmlns pour Outlook
@@ -240,6 +249,8 @@ Réponds en JSON avec cette structure exacte :
   "accessibilityNotes": "notes d'accessibilité",
   "coherenceTips": "comment cet email s'intègre dans la campagne"
 }
+
+STRUCTURE MINIMALE OBLIGATOIRE — Le champ "htmlCode" doit être un document HTML COMPLET (pas de troncature). Inclus : <!DOCTYPE html>, <head>, <body>, table 600px avec background-color:${dna.palette.background}, section hero (image ou titre), section corps avec <p> en couleur ${dna.palette.text} (2-4 phrases), CTA bouton, footer. Minimum 1500 caractères. Utiliser les URLs images du CONTENU RÉEL DU SITE si fourni.
 
 RÈGLES HTML (identiques au master) :
 - Table-based layout, role="presentation"

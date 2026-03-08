@@ -212,7 +212,7 @@ interface RawTemplateResponse {
 
 export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: SiteContent | null): Promise<RawTemplateResponse> {
   const prompt = buildMasterTemplatePrompt(dna, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }
 
 // ─── Individual Template (1-7) Generation ─────────────────────────────────────
@@ -225,5 +225,5 @@ export async function generateTemplate(
   siteContent?: SiteContent | null
 ): Promise<RawTemplateResponse> {
   const prompt = buildTemplatePrompt(dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }

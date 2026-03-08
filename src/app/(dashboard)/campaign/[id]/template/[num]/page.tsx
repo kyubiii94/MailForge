@@ -18,6 +18,12 @@ function getPreviewHtml(htmlCode: string): string {
   );
 }
 
+/** True if the generated HTML looks complete enough to display. */
+function isHtmlComplete(htmlCode: string): boolean {
+  if (!htmlCode || htmlCode.trim().length < 800) return false;
+  return /<body[\s>]/i.test(htmlCode) && /<table[\s>]/i.test(htmlCode);
+}
+
 export default function TemplatePage() {
   const params = useParams();
   const router = useRouter();
@@ -163,6 +169,12 @@ export default function TemplatePage() {
       {/* Tab content */}
       {activeTab === 'preview' && (
         <div>
+          {!isHtmlComplete(template.htmlCode) && (
+            <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              <p className="font-medium">Contenu incomplet</p>
+              <p className="mt-1">La génération a produit un HTML trop court ou vide. Cliquez sur <strong>Régénérer</strong> pour obtenir une newsletter complète (hero, texte, CTA, footer).</p>
+            </div>
+          )}
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setPreviewMode('desktop')}
@@ -187,7 +199,7 @@ export default function TemplatePage() {
               style={{ width: previewMode === 'desktop' ? 600 : 375 }}
             >
               <iframe
-                srcDoc={getPreviewHtml(template.htmlCode)}
+                srcDoc={getPreviewHtml(template.htmlCode) || '<!DOCTYPE html><html><body style="margin:0;padding:20px;font-family:sans-serif;"><p style="color:#666;">Aucun contenu généré. Cliquez sur Régénérer.</p></body></html>'}
                 title={`Preview ${template.templateType}`}
                 className="w-full border-0"
                 style={{ height: 800, width: '100%' }}
