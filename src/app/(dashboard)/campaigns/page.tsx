@@ -129,13 +129,13 @@ export default function CampaignsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
-            <FolderOpen className="w-7 h-7 text-brand-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-surface-900 flex items-center gap-3">
+            <FolderOpen className="w-6 h-6 sm:w-7 sm:h-7 text-brand-600 shrink-0" />
             Campagnes
           </h1>
-          <p className="text-surface-500 mt-1">
+          <p className="text-surface-500 mt-1 text-sm">
             Gérez vos campagnes email marketing.
           </p>
         </div>
@@ -216,15 +216,15 @@ export default function CampaignsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Nom de la campagne (ex: Newsletter Mars 2026)"
-                  value={newCampaignName}
-                  onChange={(e) => setNewCampaignName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCampaign()}
-                />
-              </div>
+            <div>
+              <Input
+                placeholder="Nom de la campagne (ex: Newsletter Mars 2026)"
+                value={newCampaignName}
+                onChange={(e) => setNewCampaignName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateCampaign()}
+              />
+            </div>
+            <div className="flex gap-3">
               <Button onClick={handleCreateCampaign} isLoading={isCreating}>
                 Créer
               </Button>

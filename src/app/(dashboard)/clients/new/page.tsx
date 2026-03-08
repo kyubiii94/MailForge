@@ -101,8 +101,8 @@ export default function NewClientPage() {
           <ArrowLeft className="w-4 h-4" />
           Retour aux clients
         </Link>
-        <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
-          <Users className="w-7 h-7 text-brand-600" />
+        <h1 className="text-xl sm:text-2xl font-bold text-surface-900 flex items-center gap-3">
+          <Users className="w-6 h-6 sm:w-7 sm:h-7 text-brand-600 shrink-0" />
           Nouveau Client
         </h1>
         <p className="text-surface-500 mt-1">

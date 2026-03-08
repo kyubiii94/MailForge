@@ -85,18 +85,18 @@ export default function BrandDNAPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
-          <Dna className="w-7 h-7 text-brand-600" />
+        <h1 className="text-xl sm:text-2xl font-bold text-surface-900 flex items-center gap-3">
+          <Dna className="w-6 h-6 sm:w-7 sm:h-7 text-brand-600 shrink-0" />
           ADN de Marque
         </h1>
-        <p className="text-surface-500 mt-1">
+        <p className="text-surface-500 mt-1 text-sm">
           Analysez automatiquement l&apos;identité de votre marque depuis votre site web.
         </p>
       </div>
 
       {/* URL Input */}
       <Card variant="elevated" padding="lg">
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <Input
               label="URL du site web"
@@ -111,6 +111,7 @@ export default function BrandDNAPage() {
               onClick={handleExtract}
               isLoading={isExtracting}
               size="lg"
+              className="w-full sm:w-auto"
             >
               <Globe className="w-4 h-4" />
               {isExtracting ? 'Analyse en cours...' : 'Analyser'}
@@ -173,10 +174,10 @@ export default function BrandDNAPage() {
               </CardTitle>
               <CardDescription>Polices détectées sur votre site web.</CardDescription>
             </CardHeader>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <p className="text-sm text-surface-500 mb-2">Police des titres</p>
-                <p className="text-2xl font-bold text-surface-900" style={{ fontFamily: brandDNA.typography.headingFont }}>
+                <p className="text-xl sm:text-2xl font-bold text-surface-900" style={{ fontFamily: brandDNA.typography.headingFont }}>
                   {brandDNA.typography.headingFont}
                 </p>
               </div>
@@ -186,7 +187,7 @@ export default function BrandDNAPage() {
                   {brandDNA.typography.bodyFont}
                 </p>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <p className="text-sm text-surface-500 mb-2">Familles détectées</p>
                 <div className="flex flex-wrap gap-2">
                   {brandDNA.typography.families.map((f) => (
@@ -216,7 +217,7 @@ export default function BrandDNAPage() {
                 </Badge>
               </div>
               <p className="text-sm text-surface-600">{brandDNA.editorialTone.style_notes}</p>
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <div>
                   <p className="text-xs text-surface-500 mb-1">Formalité</p>
                   <div className="w-full h-2 bg-surface-100 rounded-full overflow-hidden">

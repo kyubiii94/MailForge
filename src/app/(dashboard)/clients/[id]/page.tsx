@@ -137,20 +137,20 @@ export default function ClientDetailPage() {
           <ArrowLeft className="w-4 h-4" />
           Retour aux clients
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
-              <Building2 className="w-7 h-7 text-brand-600" />
+            <h1 className="text-xl sm:text-2xl font-bold text-surface-900 flex items-center gap-3">
+              <Building2 className="w-6 h-6 sm:w-7 sm:h-7 text-brand-600 shrink-0" />
               {client.name}
             </h1>
-            <p className="text-surface-500 mt-1">
+            <p className="text-surface-500 mt-1 text-sm break-all">
               {client.sector}
               {client.website && (
                 <> &middot; <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{client.website}</a></>
               )}
             </p>
           </div>
-          <Button onClick={handleSave} isLoading={isSaving}>
+          <Button onClick={handleSave} isLoading={isSaving} className="self-start sm:self-auto">
             <Save className="w-4 h-4" />
             Enregistrer
           </Button>
@@ -166,7 +166,7 @@ export default function ClientDetailPage() {
       )}
 
       {/* Quick info */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card padding="md">
           <div className="flex items-center gap-3">
             <Dna className="w-5 h-5 text-brand-500" />
@@ -238,7 +238,7 @@ export default function ClientDetailPage() {
               Ton de voix — Do / Don&apos;t
             </CardTitle>
           </CardHeader>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <p className="text-sm font-medium text-green-700 mb-2">À faire</p>
               <div className="flex flex-wrap gap-2">
@@ -271,7 +271,7 @@ export default function ClientDetailPage() {
               Extrait de <a href={brandDNA.siteUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">{brandDNA.siteUrl}</a>
             </CardDescription>
           </CardHeader>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-surface-400 mb-1">Ton</p>
               <Badge variant="success">{brandDNA.editorialTone.tone}</Badge>
@@ -315,17 +315,17 @@ export default function ClientDetailPage() {
       {/* Launch Brand DNA if not yet done */}
       {!brandDNA && client.website && (
         <Card className="border-brand-200 bg-brand-50" padding="lg">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-brand-800">
                 Analysez l&apos;ADN de marque de {client.name}
               </p>
-              <p className="text-sm text-brand-600 mt-1">
+              <p className="text-sm text-brand-600 mt-1 break-all">
                 Lancez l&apos;extraction automatique depuis {client.website}
               </p>
             </div>
             <Link href={`/brand-dna?clientId=${client.id}&url=${encodeURIComponent(client.website)}`}>
-              <Button>
+              <Button className="shrink-0">
                 <Dna className="w-4 h-4" />
                 Analyser
               </Button>

@@ -41,13 +41,13 @@ export default function ClientsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900 flex items-center gap-3">
-            <Users className="w-7 h-7 text-brand-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-surface-900 flex items-center gap-3">
+            <Users className="w-6 h-6 sm:w-7 sm:h-7 text-brand-600 shrink-0" />
             Clients
           </h1>
-          <p className="text-surface-500 mt-1">
+          <p className="text-surface-500 mt-1 text-sm">
             Gérez vos clients et leurs identités de marque.
           </p>
         </div>
@@ -83,29 +83,31 @@ export default function ClientsPage() {
               className="group"
             >
               <Card className="hover:shadow-md hover:border-surface-300 transition-all">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
                       <Building2 className="w-5 h-5 text-brand-600" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-surface-900 group-hover:text-brand-600 transition-colors">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-surface-900 group-hover:text-brand-600 transition-colors truncate">
                         {client.name}
                       </h3>
-                      <p className="text-xs text-surface-400 mt-0.5">
+                      <p className="text-xs text-surface-400 mt-0.5 truncate">
                         {client.sector}
                         {client.positioning && ` — ${client.positioning}`}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {client.website && (
-                      <Badge variant="info">
-                        <Globe className="w-3 h-3 mr-1" />
-                        Site web
-                      </Badge>
-                    )}
-                    <Badge>{client.toneOfVoice?.style || 'Non défini'}</Badge>
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <div className="hidden sm:flex items-center gap-2">
+                      {client.website && (
+                        <Badge variant="info">
+                          <Globe className="w-3 h-3 mr-1" />
+                          Site web
+                        </Badge>
+                      )}
+                      <Badge>{client.toneOfVoice?.style || 'Non défini'}</Badge>
+                    </div>
                     <ArrowRight className="w-4 h-4 text-surface-400 group-hover:text-brand-600 transition-colors" />
                   </div>
                 </div>
