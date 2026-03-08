@@ -2,8 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
+import { crawlMainPages } from '@/lib/scraping/crawler';
+import type { SiteContent } from '@/lib/ai/prompts';
 
 export const maxDuration = 300;
+
+async function fetchSiteContent(siteUrl: string): Promise<SiteContent | null> {
+  try {
+    const pages = await crawlMainPages(siteUrl);
+    const imageUrls = Array.from(
+      new Set(pages.flatMap((p) => p.imageUrls).filter((u) => /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(u)))
+    ).slice(0, 25);
+    const textContent = pages.map((p) => `${p.title || ''}\n${p.textContent}`).join('\n\n').slice(0, 6000);
+    return { imageUrls, textContent };
+  } catch (err) {
+    console.error('[Generate] Crawl for site content failed:', err);
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,6 +39,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
   await db.deleteTemplatesByCampaign(id);
 
+  let siteContent: SiteContent | null = null;
+  if (campaign.brief?.siteUrl) {
+    console.log(`[Generate] Fetching site content from ${campaign.brief.siteUrl}...`);
+    siteContent = await fetchSiteContent(campaign.brief.siteUrl);
+    if (siteContent) {
+      console.log(`[Generate] Got ${siteContent.imageUrls.length} image URLs, ${siteContent.textContent.length} chars of text`);
+    }
+  }
+
   const results: { templateNumber: number; status: string; error?: string }[] = [];
 
   try {
@@ -34,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (needsMaster) {
       console.log(`[Generate] Generating master template (#8) for campaign ${id}...`);
       try {
-        const masterData = await generateMasterTemplate(campaign.dna);
+        const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
         masterDesignSpecs = JSON.stringify(masterData.designSpecs, null, 2);
         const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
@@ -71,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       console.log(`[Generate] Generating template #${num} (${typeInfo.type})...`);
       try {
-        const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num);
+        const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, siteContent);
 
         await db.createTemplate({
           campaignId: id,

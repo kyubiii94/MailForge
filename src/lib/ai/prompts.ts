@@ -73,9 +73,34 @@ Règles :
 - Les contraintes doivent inclure : ESP (générique), largeur max 600px, compatibilité dark mode`;
 }
 
-export function buildMasterTemplatePrompt(dna: CampaignDNA): string {
+export type SiteContent = { imageUrls: string[]; textContent: string };
+
+function getSiteContentBlock(siteContent: SiteContent | null | undefined): string {
+  if (!siteContent || (siteContent.imageUrls.length === 0 && !siteContent.textContent?.trim())) return '';
+  const lines: string[] = [
+    '',
+    'CONTENU RÉEL DU SITE (à utiliser dans l\'email) :',
+    '- Tu DOIS utiliser les URLs d\'images ci-dessous dans le HTML : balises <img src="URL_ICI" alt="description" style="display:block;border:0;max-width:100%;" />.',
+    '- Pour le hero : choisis une image adaptée (produit, bannière, lifestyle) parmi les URLs listées.',
+    '- Pour les visuels secondaires : utilise d\'autres URLs de la liste si pertinent.',
+    '- Le copy (titres, accroches, texte) peut s\'inspirer des extraits de texte du site pour rester fidèle à la marque.',
+  ];
+  if (siteContent.imageUrls.length > 0) {
+    lines.push('- URLs d\'images à utiliser (au moins une pour le hero) :');
+    siteContent.imageUrls.slice(0, 20).forEach((url) => lines.push(`  ${url}`));
+  }
+  if (siteContent.textContent?.trim()) {
+    lines.push('- Extraits de texte du site (pour le copy) :');
+    lines.push(siteContent.textContent.slice(0, 3000));
+  }
+  return lines.join('\n');
+}
+
+export function buildMasterTemplatePrompt(dna: CampaignDNA, siteContent?: SiteContent | null): string {
+  const siteBlock = getSiteContentBlock(siteContent ?? null);
   return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
 Tu dois créer le CAMPAIGN MASTER TEMPLATE (#8) qui servira de système de design de référence pour toute la campagne newsletter.
+${siteBlock}
 
 ADN DE LA CAMPAGNE :
 - Marque : ${dna.marque.name} (${dna.marque.sector})
@@ -137,11 +162,11 @@ RÈGLES STRICTES POUR LE CODE HTML :
 - CSS inline uniquement (pas de <style> externe sauf pour responsive/dark mode)
 - <style> block dans <head> uniquement pour media queries et dark mode
 - MSO conditionals : <!--[if mso]> et <!--[if !mso]>
-- Images : alt="" descriptif, display: block, border: 0
+- Images : utilise les VRAIES URLs fournies dans "CONTENU RÉEL DU SITE" pour le hero et les visuels ; alt="" descriptif, display: block, border: 0, max-width: 100%
 - Responsive : @media screen and (max-width: 600px)
 - Dark mode : @media (prefers-color-scheme: dark), color-scheme: light dark
 - Lien unsubscribe dans le footer
-- Le HTML doit être COMPLET et fonctionnel, pas un placeholder
+- Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder type https://via.placeholder.com)
 
 POUR LE MJML :
 - Utilise les balises MJML standard : <mjml>, <mj-head>, <mj-body>, <mj-section>, <mj-column>, <mj-text>, <mj-button>, <mj-image>
@@ -153,13 +178,16 @@ export function buildTemplatePrompt(
   dna: CampaignDNA,
   masterDesignSpecs: string,
   masterHeadHtml: string,
-  templateNumber: number
+  templateNumber: number,
+  siteContent?: SiteContent | null
 ): string {
   const templateInfo = TEMPLATE_TYPES.find((t) => t.number === templateNumber);
   if (!templateInfo) throw new Error(`Template type ${templateNumber} not found`);
+  const siteBlock = getSiteContentBlock(siteContent ?? null);
 
   return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
 Tu dois créer l'email #${templateNumber} (${templateInfo.type}) pour une campagne newsletter.
+${siteBlock}
 
 TYPE D'EMAIL : ${templateInfo.type}
 OBJECTIF : ${templateInfo.objective}
@@ -213,11 +241,11 @@ RÈGLES HTML (identiques au master) :
 - CSS inline, MSO conditionals
 - Responsive @media max-width: 600px
 - Dark mode @media prefers-color-scheme: dark
-- Images avec alt text, display: block
+- Images : utilise les VRAIES URLs du "CONTENU RÉEL DU SITE" (hero, produits, visuels) ; alt text, display: block, max-width: 100%
 - Footer avec unsubscribe
 - Réutiliser le <head> du master template
 - Le contenu doit être RÉALISTE pour une marque "${dna.marque.name}" dans le secteur "${dna.marque.sector}"
-- Le HTML doit être COMPLET et fonctionnel
+- Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder)
 
 COHÉRENCE :
 - Même font-stack que le master template

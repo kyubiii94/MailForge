@@ -28,6 +28,7 @@ export default function CampaignPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
   const generateRequestRef = useRef<boolean>(false);
+  const hasSeenGeneratingRef = useRef<boolean>(false);
 
   const fetchCampaign = useCallback(async (silent = false) => {
     try {
@@ -58,6 +59,7 @@ export default function CampaignPage() {
   const startPolling = useCallback(() => {
     stopPolling();
     pollStartRef.current = Date.now();
+    hasSeenGeneratingRef.current = false;
 
     const doPoll = async () => {
       if (Date.now() - pollStartRef.current > POLL_TIMEOUT) {
@@ -67,7 +69,13 @@ export default function CampaignPage() {
         return;
       }
       const c = await fetchCampaign(true);
-      if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
+      if (c?.status === 'generating') hasSeenGeneratingRef.current = true;
+      const elapsed = Date.now() - pollStartRef.current;
+      const canStopOnFinal = hasSeenGeneratingRef.current || elapsed > 15000;
+      // #region agent log
+      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:pollTick', message: 'poll tick', data: { campaignStatus: c?.status, canStopOnFinal, hasSeenGenerating: hasSeenGeneratingRef.current, elapsed }, timestamp: Date.now(), hypothesisId: 'H1,H3' }) }).catch(() => {});
+      // #endregion
+      if (c && (c.status === 'generated' || c.status === 'dna_ready') && canStopOnFinal) {
         stopPolling();
         setIsGenerating(false);
       }
@@ -97,6 +105,9 @@ export default function CampaignPage() {
   }
 
   async function handleGenerate() {
+    // #region agent log
+    fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:handleGenerate:entry', message: 'handleGenerate called', data: { campaignId, selectedCount: selectedTypes.length }, timestamp: Date.now(), hypothesisId: 'H1' }) }).catch(() => {});
+    // #endregion
     setIsGenerating(true);
     setGenerationResults([]);
     setError('');
@@ -112,10 +123,17 @@ export default function CampaignPage() {
         body: JSON.stringify({ selectedTypes: typesToGenerate }),
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:afterFetch', message: 'fetch returned', data: { status: res.status, ok: res.ok }, timestamp: Date.now(), hypothesisId: 'H1,H4,H5' }) }).catch(() => {});
+      // #endregion
+
       let data: { results?: { templateNumber: number; status: string; error?: string }[]; templates?: NewsletterTemplate[]; error?: string };
       try {
         data = await res.json();
       } catch {
+        // #region agent log
+        fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:jsonThrow', message: 'res.json() threw', data: { status: res.status }, timestamp: Date.now(), hypothesisId: 'H5' }) }).catch(() => {});
+        // #endregion
         // Réponse non-JSON (ex: 502/504 HTML) — le body est déjà consommé
         if (res.status >= 500) {
           setError('Le serveur a mis trop de temps à répondre. Les templates déjà générés apparaîtront ci-dessous dans quelques secondes.');
@@ -137,6 +155,9 @@ export default function CampaignPage() {
         return;
       }
 
+      // #region agent log
+      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:successPath', message: 'success path setting state', data: { resultsLen: (data.results || []).length, templatesLen: (data.templates || []).length }, timestamp: Date.now(), hypothesisId: 'H2,H5' }) }).catch(() => {});
+      // #endregion
       setGenerationResults(data.results || []);
       setTemplates(data.templates || []);
       setCampaign((prev) => (prev ? { ...prev, status: 'generated' as const, selectedTemplateTypes: typesToGenerate } : null));
@@ -144,10 +165,16 @@ export default function CampaignPage() {
       setIsGenerating(false);
       generateRequestRef.current = false;
     } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:catch', message: 'handleGenerate catch', data: { errMsg: err instanceof Error ? err.message : String(err) }, timestamp: Date.now(), hypothesisId: 'H3,H4' }) }).catch(() => {});
+      // #endregion
       generateRequestRef.current = false;
       setError('Erreur de connexion. Un rafraîchissement automatique va récupérer les templates déjà générés.');
       // Un premier poll rapide pour mettre à jour l'UI
       const c = await fetchCampaign(true);
+      // #region agent log
+      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:afterCatchFetch', message: 'after fetchCampaign in catch', data: { campaignStatus: c?.status }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => {});
+      // #endregion
       if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
         stopPolling();
         setIsGenerating(false);
