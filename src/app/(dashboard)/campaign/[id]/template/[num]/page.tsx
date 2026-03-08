@@ -41,6 +41,7 @@ export default function TemplatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [existingTemplateNumbers, setExistingTemplateNumbers] = useState<number[]>([]);
 
   function copyTemplateUrl() {
     if (typeof window === 'undefined') return;
@@ -54,15 +55,22 @@ export default function TemplatePage() {
   const fetchTemplate = useCallback(async () => {
     try {
       const res = await fetch(`/api/campaign/${campaignId}/template/${templateNum}`);
-      if (!res.ok) throw new Error('Template introuvable');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setExistingTemplateNumbers(Array.isArray(data.existingTemplateNumbers) ? data.existingTemplateNumbers : []);
+        setError(data.error || 'Template introuvable');
+        return;
+      }
       setTemplate(data.template);
       setCampaign(data.campaign);
+      setError('');
+      setExistingTemplateNumbers([]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg.includes('Failed to fetch')
         ? 'Impossible de charger le template. Vérifiez votre connexion et que la campagne existe.'
         : `Chargement impossible : ${msg}`);
+      setExistingTemplateNumbers([]);
     } finally {
       setLoading(false);
     }
@@ -129,12 +137,27 @@ export default function TemplatePage() {
 
   if (!template) {
     return (
-      <div className="max-w-lg mx-auto text-center py-16 space-y-6">
+      <div className="max-w-lg mx-auto py-16 space-y-6">
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-6 text-left">
           <p className="font-medium text-amber-900">Template introuvable</p>
           <p className="text-sm text-amber-800 mt-1">
-            Ce template n’existe pas ou n’a pas encore été généré. Le détail de votre campagne (ADN, templates générés, bouton de génération) se trouve sur la fiche campagne.
+            Le template #{templateNum} n’existe pas ou n’a pas encore été généré. Accédez à la fiche campagne pour consulter les templates disponibles et en générer de nouveaux.
           </p>
+          {existingTemplateNumbers.length > 0 && (
+            <p className="text-sm text-amber-800 mt-2 pt-2 border-t border-amber-200">
+              Templates déjà générés pour cette campagne :{' '}
+              {existingTemplateNumbers.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => router.push(`/campaign/${campaignId}/template/${n}`)}
+                  className="inline-flex items-center justify-center rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium px-2 py-0.5 text-sm mr-1"
+                >
+                  #{n}
+                </button>
+              ))}
+            </p>
+          )}
           {error && (
             <p className="text-sm text-amber-700 mt-2 pt-2 border-t border-amber-200">{error}</p>
           )}
