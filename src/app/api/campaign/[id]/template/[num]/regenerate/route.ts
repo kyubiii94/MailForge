@@ -2,31 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
-import { crawlMainPages } from '@/lib/scraping/crawler';
 import type { SiteContent } from '@/lib/ai/prompts';
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
-async function fetchSiteContent(siteUrl: string): Promise<SiteContent | null> {
-  try {
-    const pages = await crawlMainPages(siteUrl);
-    const imageUrls = Array.from(
-      new Set(pages.flatMap((p) => p.imageUrls).filter((u) => /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(u)))
-    ).slice(0, 25);
-    const textContent = pages.map((p) => `${p.title || ''}\n${p.textContent}`).join('\n\n').slice(0, 6000);
-    return { imageUrls, textContent };
-  } catch {
-    return null;
-  }
-}
+async function buildSiteContentFromClient(clientId: string | null | undefined): Promise<SiteContent | null> {
+  if (!clientId) return null;
+  const client = await db.getClient(clientId);
+  if (!client?.siteAnalysis) return null;
 
-async function resolveSiteUrl(campaign: { brief?: { siteUrl?: string }; clientId?: string | null }): Promise<string | null> {
-  if (campaign.brief?.siteUrl) return campaign.brief.siteUrl;
-  if (campaign.clientId) {
-    const client = await db.getClient(campaign.clientId);
-    if (client?.website) return client.website;
-  }
-  return null;
+  const analysis = client.siteAnalysis;
+  const textParts: string[] = [];
+  if (client.name) textParts.push(client.name);
+  if (client.sector) textParts.push(`Secteur : ${client.sector}`);
+  if (client.positioning) textParts.push(`Positionnement : ${client.positioning}`);
+  if (analysis.toneOfVoice) textParts.push(`Ton : ${analysis.toneOfVoice}`);
+  if (analysis.audience) textParts.push(`Audience : ${analysis.audience}`);
+  if (analysis.ambiance) textParts.push(`Ambiance : ${analysis.ambiance}`);
+  if (analysis.keywords?.length) textParts.push(`Mots-clés : ${analysis.keywords.join(', ')}`);
+  if (analysis.colors) textParts.push(`Couleurs du site : ${analysis.colors}`);
+  if (analysis.fonts) textParts.push(`Polices du site : ${analysis.fonts}`);
+
+  return {
+    imageUrls: [],
+    textContent: textParts.join('\n'),
+  };
 }
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string; num: string }> }) {
@@ -43,17 +43,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Numéro de template invalide' }, { status: 400 });
   }
 
-  let siteContent: SiteContent | null = null;
-  try {
-    const siteUrl = await resolveSiteUrl(campaign);
-    if (siteUrl) {
-      const crawlPromise = fetchSiteContent(siteUrl);
-      const timeout = new Promise<null>((_, reject) => setTimeout(() => reject(new Error('crawl_timeout')), 12000));
-      siteContent = await Promise.race([crawlPromise, timeout]);
-    }
-  } catch {
-    siteContent = null;
-  }
+  const siteContent = await buildSiteContentFromClient(campaign.clientId);
 
   try {
     let data;
@@ -78,7 +68,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         layoutDescription: data.layoutDescription,
         designSpecs: data.designSpecs,
         htmlCode: data.htmlCode || '',
-        mjmlCode: data.mjmlCode || '',
+        mjmlCode: '',
         darkModeOverrides: data.darkModeOverrides || '',
         accessibilityNotes: data.accessibilityNotes || '',
         coherenceTips: data.coherenceTips || '',
@@ -93,7 +83,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
         designSpecs: data.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
         htmlCode: data.htmlCode || '',
-        mjmlCode: data.mjmlCode || '',
+        mjmlCode: '',
         darkModeOverrides: data.darkModeOverrides || '',
         accessibilityNotes: data.accessibilityNotes || '',
         coherenceTips: data.coherenceTips || '',

@@ -2,23 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
-import { crawlMainPages } from '@/lib/scraping/crawler';
 import type { SiteContent } from '@/lib/ai/prompts';
 
 export const maxDuration = 300;
 
-async function fetchSiteContent(siteUrl: string): Promise<SiteContent | null> {
-  try {
-    const pages = await crawlMainPages(siteUrl);
-    const imageUrls = Array.from(
-      new Set(pages.flatMap((p) => p.imageUrls).filter((u) => /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(u)))
-    ).slice(0, 25);
-    const textContent = pages.map((p) => `${p.title || ''}\n${p.textContent}`).join('\n\n').slice(0, 6000);
-    return { imageUrls, textContent };
-  } catch (err) {
-    console.error('[Generate] Crawl for site content failed:', err);
-    return null;
-  }
+async function buildSiteContentFromClient(clientId: string | null | undefined): Promise<SiteContent | null> {
+  if (!clientId) return null;
+  const client = await db.getClient(clientId);
+  if (!client?.siteAnalysis) return null;
+
+  const analysis = client.siteAnalysis;
+  const textParts: string[] = [];
+  if (client.name) textParts.push(client.name);
+  if (client.sector) textParts.push(`Secteur : ${client.sector}`);
+  if (client.positioning) textParts.push(`Positionnement : ${client.positioning}`);
+  if (analysis.toneOfVoice) textParts.push(`Ton : ${analysis.toneOfVoice}`);
+  if (analysis.audience) textParts.push(`Audience : ${analysis.audience}`);
+  if (analysis.ambiance) textParts.push(`Ambiance : ${analysis.ambiance}`);
+  if (analysis.keywords?.length) textParts.push(`Mots-clés : ${analysis.keywords.join(', ')}`);
+  if (analysis.colors) textParts.push(`Couleurs du site : ${analysis.colors}`);
+  if (analysis.fonts) textParts.push(`Polices du site : ${analysis.fonts}`);
+
+  return {
+    imageUrls: [],
+    textContent: textParts.join('\n'),
+  };
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -39,14 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
   await db.deleteTemplatesByCampaign(id);
 
-  let siteContent: SiteContent | null = null;
-  if (campaign.brief?.siteUrl) {
-    console.log(`[Generate] Fetching site content from ${campaign.brief.siteUrl}...`);
-    siteContent = await fetchSiteContent(campaign.brief.siteUrl);
-    if (siteContent) {
-      console.log(`[Generate] Got ${siteContent.imageUrls.length} image URLs, ${siteContent.textContent.length} chars of text`);
-    }
-  }
+  const siteContent = await buildSiteContentFromClient(campaign.clientId);
 
   const results: { templateNumber: number; status: string; error?: string }[] = [];
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
             designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
             htmlCode: masterData.htmlCode || '',
-            mjmlCode: masterData.mjmlCode || '',
+            mjmlCode: '',
             darkModeOverrides: masterData.darkModeOverrides || '',
             accessibilityNotes: masterData.accessibilityNotes || '',
             coherenceTips: masterData.coherenceTips || '',
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       console.log(`[Generate] Generating template #${num} (${typeInfo.type})...`);
       try {
-        const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, siteContent);
+        const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, null);
 
         await db.createTemplate({
           campaignId: id,
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           layoutDescription: data.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
           designSpecs: data.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
           htmlCode: data.htmlCode || '',
-          mjmlCode: data.mjmlCode || '',
+          mjmlCode: '',
           darkModeOverrides: data.darkModeOverrides || '',
           accessibilityNotes: data.accessibilityNotes || '',
           coherenceTips: data.coherenceTips || '',

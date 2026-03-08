@@ -98,7 +98,7 @@ export default function CampaignPage() {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 55000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const res = await fetch(`/api/campaign/${campaignId}/generate-one`, {
           method: 'POST',

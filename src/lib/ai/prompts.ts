@@ -126,66 +126,27 @@ OBJECTIF : Créer un template master complet qui définit le système de design.
 
 Réponds en JSON avec cette structure exacte :
 {
-  "subjectLine": "Objet d'email optimisé",
-  "previewText": "Preview text de 40-90 caractères",
-  "layoutDescription": {
-    "structure": "description du layout — nombre de sections, disposition des blocs",
-    "heroSection": "description du header / hero — image, titre, sous-titre",
-    "bodySections": "description des blocs de contenu — texte, images, colonnes",
-    "ctaSection": "description du/des CTA — texte, style, placement",
-    "footer": "description du footer — liens, social, unsubscribe"
-  },
-  "designSpecs": {
-    "width": "600px",
-    "backgroundColor": "${dna.palette.background}",
-    "fontStack": "${dna.designSystem.primaryFont}",
-    "headingStyle": "taille, poids, couleur, espacement des titres",
-    "bodyStyle": "taille, hauteur de ligne, couleur du texte body",
-    "ctaStyle": "couleur bg, couleur texte, border-radius, padding, hover",
-    "spacing": "système d'espacement — padding entre sections",
-    "borderRadius": "${dna.designSystem.borderRadius}",
-    "imageTreatment": "style des images — full-width, rounded, shadow, ratio"
-  },
-  "htmlCode": "CODE HTML EMAIL COMPLET ICI",
-  "mjmlCode": "CODE MJML EQUIVALENT ICI",
-  "darkModeOverrides": "CSS pour compatibilité dark mode",
-  "accessibilityNotes": "notes d'accessibilité",
-  "coherenceTips": "conseils pour maintenir la cohérence avec les autres emails"
+  "subjectLine": "Objet email optimisé",
+  "previewText": "Preview text 40-90 car.",
+  "layoutDescription": { "structure": "...", "heroSection": "...", "bodySections": "...", "ctaSection": "...", "footer": "..." },
+  "designSpecs": { "width": "600px", "backgroundColor": "${dna.palette.background}", "fontStack": "${dna.designSystem.primaryFont}", "headingStyle": "...", "bodyStyle": "...", "ctaStyle": "...", "spacing": "...", "borderRadius": "${dna.designSystem.borderRadius}", "imageTreatment": "..." },
+  "htmlCode": "CODE HTML EMAIL COMPLET — voir règles ci-dessous",
+  "darkModeOverrides": "",
+  "accessibilityNotes": "",
+  "coherenceTips": ""
 }
 
-STRUCTURE MINIMALE OBLIGATOIRE — Le champ "htmlCode" doit contenir un document HTML COMPLET (pas de troncature, pas de commentaire "voir ailleurs"). Inclus obligatoirement :
-1. <!DOCTYPE html><html><head><meta charset="utf-8"><title>...</title></head><body style="margin:0;padding:0;">
-2. Une table principale width="600" align="center" avec style="background-color:${dna.palette.background};" et des <tr><td> pour chaque section.
-3. Section HERO : une <td> avec soit une <img src="URL" alt="..." style="display:block;max-width:100%;" /> (utiliser une URL du CONTENU RÉEL DU SITE si fourni), soit un <h1> style="color:${dna.palette.text};font-size:28px;" avec l'accroche (ex. nom du produit ou de la marque).
-4. Section TEXTE : au moins une <td> avec <p style="color:${dna.palette.text};font-size:16px;line-height:24px;"> contenant 2-4 phrases concrètes sur la marque / l'objectif (ex. lancement t-shirt, qualité, durabilité).
-5. Section CTA : une <td> avec <a href="#" style="display:inline-block;background-color:${dna.palette.primary};color:#fff;padding:14px 28px;text-decoration:none;border-radius:4px;">Découvrir</a> (ou texte équivalent).
-6. Section FOOTER : une <td> avec au minimum "Se désabonner" et l'adresse ou le nom de la marque.
-La chaîne htmlCode doit faire au moins 1500 caractères. Tout le code doit être dans cette seule chaîne JSON.
-
-RÈGLES STRICTES POUR LE CODE HTML :
-- Structure : Table-based layout (pas de div pour la structure)
-- <!DOCTYPE html> avec xmlns pour Outlook
-- <table> avec role="presentation" pour l'accessibilité
-- Largeur max 600px, centré avec align="center"
-- cellpadding="0" et cellspacing="0" sur toutes les tables
-- CSS inline uniquement (pas de <style> externe sauf pour responsive/dark mode)
-- <style> block dans <head> uniquement pour media queries et dark mode
-- MSO conditionals : <!--[if mso]> et <!--[if !mso]>
-- Images : utilise les VRAIES URLs fournies dans "CONTENU RÉEL DU SITE" pour le hero et les visuels ; alt="" descriptif, display: block, border: 0, max-width: 100%
-- Responsive : @media screen and (max-width: 600px)
-- Dark mode : @media (prefers-color-scheme: dark), color-scheme: light dark
-- Lien unsubscribe dans le footer
-- Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder type https://via.placeholder.com)
-
-CONTENU ET LISIBILITÉ OBLIGATOIRES :
-- En mode clair (défaut), le fond principal du corps doit être la couleur "background" de la palette (ex: ${dna.palette.background}), le texte en couleur "text" (ex: ${dna.palette.text}). Ne JAMAIS produire un email entièrement noir ou sans contenu lisible.
-- Le corps de l'email doit contenir : (1) une section hero avec image ou titre accrocheur, (2) au moins une section de texte avec du copy concret (titres, paragraphes) en rapport avec la marque et l'objectif, (3) un ou plusieurs CTA visibles (boutons ou liens), (4) un footer avec liens et désinscription.
-- Rédiger du vrai copy : titres, accroches et CTA en lien direct avec l'objet de la campagne et la marque (ex. pour un lancement produit : nom du produit, bénéfices, "Découvrir", "Voir la collection"). Pas de "Lorem ipsum" ni de contenu vide.
-
-POUR LE MJML :
-- Utilise les balises MJML standard : <mjml>, <mj-head>, <mj-body>, <mj-section>, <mj-column>, <mj-text>, <mj-button>, <mj-image>
-- Inclure les attributs de style correspondant au design system
-- Le MJML doit produire un résultat visuellement identique au HTML`;
+Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE. Structure obligatoire :
+- <!DOCTYPE html><html><head> avec meta charset + <style> pour responsive (@media max-width:600px) </head>
+- <body style="margin:0;padding:0;background-color:${dna.palette.background};">
+- Table principale width="600" align="center" cellpadding="0" cellspacing="0" role="presentation"
+- Section HERO : <td> avec <h1 style="color:${dna.palette.text};font-size:28px;font-family:${dna.designSystem.primaryFont};"> + accroche en lien avec "${dna.objectif}"
+- Section TEXTE : <td> avec <p style="color:${dna.palette.text};font-size:16px;line-height:24px;font-family:${dna.designSystem.primaryFont};"> 2-4 phrases concrètes sur la marque ${dna.marque.name}
+- Section CTA : <td align="center"> avec <a href="#" style="display:inline-block;background-color:${dna.palette.primary};color:#fff;padding:14px 28px;text-decoration:none;border-radius:${dna.designSystem.borderRadius};font-family:${dna.designSystem.primaryFont};">Texte CTA</a>
+- Section FOOTER : <td> avec lien "Se désabonner" + nom de la marque
+- CSS inline sur chaque élément. Le HTML doit faire au moins 1500 caractères.
+- Rédiger du VRAI copy : titres, accroches et CTA en français, en lien avec l'objectif "${dna.objectif}" et la marque "${dna.marque.name}". Pas de Lorem ipsum, pas de placeholder.
+- NE PAS inclure de champ "mjmlCode" dans la réponse.`;
 }
 
 export function buildTemplatePrompt(
@@ -223,55 +184,24 @@ ${masterHeadHtml}
 
 Réponds en JSON avec cette structure exacte :
 {
-  "subjectLine": "Objet d'email optimisé pour ce type",
-  "previewText": "Preview text de 40-90 caractères",
-  "layoutDescription": {
-    "structure": "description du layout adapté au type ${templateInfo.type}",
-    "heroSection": "description du hero adapté",
-    "bodySections": "description des sections de contenu",
-    "ctaSection": "description des CTA",
-    "footer": "footer identique au master template"
-  },
-  "designSpecs": {
-    "width": "600px",
-    "backgroundColor": "${dna.palette.background}",
-    "fontStack": "${dna.designSystem.primaryFont}",
-    "headingStyle": "cohérent avec le master template",
-    "bodyStyle": "cohérent avec le master template",
-    "ctaStyle": "cohérent avec le master template",
-    "spacing": "cohérent avec le master template",
-    "borderRadius": "${dna.designSystem.borderRadius}",
-    "imageTreatment": "adapté au type d'email"
-  },
-  "htmlCode": "CODE HTML EMAIL COMPLET ICI",
-  "mjmlCode": "CODE MJML EQUIVALENT ICI",
-  "darkModeOverrides": "CSS dark mode cohérent",
-  "accessibilityNotes": "notes d'accessibilité",
-  "coherenceTips": "comment cet email s'intègre dans la campagne"
+  "subjectLine": "Objet email optimisé pour ${templateInfo.type}",
+  "previewText": "Preview text 40-90 car.",
+  "layoutDescription": { "structure": "...", "heroSection": "...", "bodySections": "...", "ctaSection": "...", "footer": "..." },
+  "designSpecs": { "width": "600px", "backgroundColor": "${dna.palette.background}", "fontStack": "${dna.designSystem.primaryFont}", "headingStyle": "...", "bodyStyle": "...", "ctaStyle": "...", "spacing": "...", "borderRadius": "${dna.designSystem.borderRadius}", "imageTreatment": "..." },
+  "htmlCode": "CODE HTML EMAIL COMPLET",
+  "darkModeOverrides": "",
+  "accessibilityNotes": "",
+  "coherenceTips": ""
 }
 
-STRUCTURE MINIMALE OBLIGATOIRE — Le champ "htmlCode" doit être un document HTML COMPLET (pas de troncature). Inclus : <!DOCTYPE html>, <head>, <body>, table 600px avec background-color:${dna.palette.background}, section hero (image ou titre), section corps avec <p> en couleur ${dna.palette.text} (2-4 phrases), CTA bouton, footer. Minimum 1500 caractères. Utiliser les URLs images du CONTENU RÉEL DU SITE si fourni.
-
-RÈGLES HTML (identiques au master) :
-- Table-based layout, role="presentation"
-- CSS inline, MSO conditionals
-- Responsive @media max-width: 600px
-- Dark mode @media prefers-color-scheme: dark
-- Images : utilise les VRAIES URLs du "CONTENU RÉEL DU SITE" (hero, produits, visuels) ; alt text, display: block, max-width: 100%
-- Footer avec unsubscribe
-- Réutiliser le <head> du master template
-- Le contenu doit être RÉALISTE pour une marque "${dna.marque.name}" dans le secteur "${dna.marque.sector}"
-- Le HTML doit être COMPLET et fonctionnel avec de vrais visuels (pas de placeholder)
-
-CONTENU ET LISIBILITÉ OBLIGATOIRES :
-- En mode clair (défaut), fond du corps = couleur background (${dna.palette.background}), texte = couleur text (${dna.palette.text}). Ne jamais produire un email entièrement noir ou vide.
-- Inclure : hero (image ou titre), sections de corps avec copy concret (titres, paragraphes, CTA) en lien avec l'objectif "${dna.objectif}" et la marque ${dna.marque.name}. Rédiger du vrai texte, pas de placeholder.
-
-COHÉRENCE :
-- Même font-stack que le master template
-- Mêmes couleurs hex exactes
-- Même style de CTA
-- Même espacement entre sections
-- Footer identique
-- Le <head> (dark mode + media queries) doit être copié du master`;
+Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
+- <!DOCTYPE html><html><head> + <style> responsive </head><body style="margin:0;padding:0;background-color:${dna.palette.background};">
+- Table 600px, CSS inline, role="presentation", cellpadding="0" cellspacing="0"
+- Hero : <h1> ou image en lien avec "${dna.objectif}" pour ${templateInfo.type}
+- Corps : 2-4 paragraphes concrets, couleur ${dna.palette.text}, font ${dna.designSystem.primaryFont}
+- CTA : bouton bg ${dna.palette.primary}, texte #fff, border-radius ${dna.designSystem.borderRadius}
+- Footer : "Se désabonner" + ${dna.marque.name}
+- Minimum 1500 caractères. Vrai copy en français lié à "${dna.objectif}" et "${dna.marque.name}". Pas de Lorem ipsum.
+- Cohérence avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer.
+- NE PAS inclure de champ "mjmlCode" dans la réponse.`;
 }
