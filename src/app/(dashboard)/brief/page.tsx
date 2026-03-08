@@ -2,22 +2,21 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import type { BriefMode } from '@/types';
+import type { BriefMode, Client } from '@/types';
+import { Building2 } from 'lucide-react';
 
 function BriefPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<BriefMode>('vague');
   const [clientId, setClientId] = useState<string | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
 
-  useEffect(() => {
-    const id = searchParams.get('clientId');
-    if (id) setClientId(id);
-  }, [searchParams]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,8 +28,44 @@ function BriefPageContent() {
   const [ambiance, setAmbiance] = useState('');
   const [palette, setPalette] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
-  const [extraContent, setExtraContent] = useState('');
   const [constraints, setConstraints] = useState('');
+
+  useEffect(() => {
+    const id = searchParams.get('clientId');
+    if (id) {
+      setClientId(id);
+      fetchClientAndPrefill(id);
+    }
+  }, [searchParams]);
+
+  async function fetchClientAndPrefill(cid: string) {
+    try {
+      const res = await fetch(`/api/clients/${cid}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const c: Client = data.client;
+      if (!c) return;
+
+      setClientName(c.name);
+      setBrand(c.name);
+      if (c.sector) setSector(c.sector);
+      if (c.positioning) setPositioning(c.positioning);
+
+      if (c.website) {
+        setSiteUrl(c.website);
+        setMode('precise');
+      }
+
+      if (c.siteAnalysis) {
+        if (c.siteAnalysis.ambiance) setAmbiance(c.siteAnalysis.ambiance);
+        if (c.siteAnalysis.colors) setPalette(c.siteAnalysis.colors);
+        if (c.siteAnalysis.audience) setAudience(c.siteAnalysis.audience);
+      }
+
+    } catch {
+      // silently ignore
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,6 +111,17 @@ function BriefPageContent() {
 
   return (
     <div className="space-y-8">
+      {clientName && clientId && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-brand-50 border border-brand-200 rounded-xl">
+          <Building2 className="w-5 h-5 text-brand-600" />
+          <span className="text-sm text-brand-800">
+            Campagne pour <strong>{clientName}</strong>
+          </span>
+          <Link href={`/clients/${clientId}`} className="ml-auto text-xs text-brand-600 hover:underline">
+            Retour à la fiche client
+          </Link>
+        </div>
+      )}
       <div>
         <h1 className="text-3xl font-bold text-surface-900">Créer une campagne</h1>
         <p className="mt-2 text-surface-600">

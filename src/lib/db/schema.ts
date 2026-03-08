@@ -13,6 +13,7 @@ export const clients = pgTable('clients', {
   toneOfVoice: jsonb('tone_of_voice').$type<Client['toneOfVoice']>().notNull().default({ style: '', language: [], do: [], dont: [] }),
   technicalPrefs: jsonb('technical_prefs').$type<Client['technicalPrefs']>().notNull().default({ esp: null, mergeTagsFormat: '', darkMode: false, languages: [] }),
   notes: text('notes').notNull().default(''),
+  siteAnalysis: jsonb('site_analysis').$type<Client['siteAnalysis']>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

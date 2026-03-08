@@ -29,6 +29,15 @@ export interface Client {
     languages: string[];
   };
   notes: string;
+  siteAnalysis?: {
+    colors: string;
+    fonts: string;
+    toneOfVoice: string;
+    keywords: string[];
+    audience: string;
+    ambiance: string;
+    analyzedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

@@ -52,6 +52,7 @@ export const db = {
     if (data.toneOfVoice !== undefined) updates.toneOfVoice = data.toneOfVoice;
     if (data.technicalPrefs !== undefined) updates.technicalPrefs = data.technicalPrefs;
     if (data.notes !== undefined) updates.notes = data.notes;
+    if (data.siteAnalysis !== undefined) updates.siteAnalysis = data.siteAnalysis;
 
     const [row] = await d.update(schema.clients).set(updates).where(eq(schema.clients.id, id)).returning();
     return row ? rowToClient(row) : undefined;
@@ -197,6 +198,7 @@ function rowToClient(r: ClientRow): Client {
     toneOfVoice: (r.toneOfVoice as Client['toneOfVoice']) ?? { style: '', language: [], do: [], dont: [] },
     technicalPrefs: (r.technicalPrefs as Client['technicalPrefs']) ?? { esp: null, mergeTagsFormat: '', darkMode: false, languages: [] },
     notes: r.notes,
+    siteAnalysis: (r.siteAnalysis as Client['siteAnalysis']) ?? undefined,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
