@@ -22,6 +22,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       {
         error: `Template #${templateNumber} non trouvé`,
         campaignId,
+        campaign,
         requestedNumber: templateNumber,
         existingTemplateNumbers: existingNumbers,
       },

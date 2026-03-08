@@ -42,10 +42,11 @@ export default function TemplatePage() {
   const [error, setError] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [existingTemplateNumbers, setExistingTemplateNumbers] = useState<number[]>([]);
+  const [notFoundCampaign, setNotFoundCampaign] = useState<Campaign | null>(null);
 
   function copyTemplateUrl() {
     if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/campaign/${campaignId}/template/${templateNum}`;
+    const url = `${window.location.origin}/campaign/${canonicalId}/template/${templateNum}`;
     navigator.clipboard?.writeText(url).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -58,6 +59,7 @@ export default function TemplatePage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setExistingTemplateNumbers(Array.isArray(data.existingTemplateNumbers) ? data.existingTemplateNumbers : []);
+        setNotFoundCampaign(data.campaign || null);
         setError(data.error || 'Template introuvable');
         return;
       }
@@ -65,6 +67,7 @@ export default function TemplatePage() {
       setCampaign(data.campaign);
       setError('');
       setExistingTemplateNumbers([]);
+      setNotFoundCampaign(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg.includes('Failed to fetch')
@@ -136,6 +139,7 @@ export default function TemplatePage() {
   }
 
   if (!template) {
+    const canonicalId = notFoundCampaign?.id ?? campaignId;
     return (
       <div className="max-w-lg mx-auto py-16 space-y-6">
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-6 text-left">
@@ -150,7 +154,7 @@ export default function TemplatePage() {
                 <button
                   key={n}
                   type="button"
-                  onClick={() => router.push(`/campaign/${campaignId}/template/${n}`)}
+                  onClick={() => router.push(`/campaign/${canonicalId}/template/${n}`)}
                   className="inline-flex items-center justify-center rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium px-2 py-0.5 text-sm mr-1"
                 >
                   #{n}
@@ -165,7 +169,7 @@ export default function TemplatePage() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
             size="lg"
-            onClick={() => router.push(`/campaign/${campaignId}`)}
+            onClick={() => router.push(`/campaign/${canonicalId}`)}
           >
             Accéder à la fiche campagne
           </Button>
@@ -181,6 +185,8 @@ export default function TemplatePage() {
     );
   }
 
+  const canonicalId = campaign?.id ?? campaignId;
+
   const tabs: { id: Tab; label: string }[] = [
     { id: 'preview', label: 'Aperçu' },
     { id: 'html', label: 'Code HTML' },
@@ -194,7 +200,7 @@ export default function TemplatePage() {
       <div className="flex items-center justify-between">
         <div>
           <button
-            onClick={() => router.push(`/campaign/${campaignId}`)}
+            onClick={() => router.push(`/campaign/${canonicalId}`)}
             className="text-sm text-surface-500 hover:text-surface-700 mb-2 inline-flex items-center gap-1"
           >
             ← Retour à la campagne
@@ -230,7 +236,7 @@ export default function TemplatePage() {
       <div className="rounded-lg bg-surface-50 border border-surface-200 px-3 py-2 text-sm">
         <span className="text-surface-500">Lien direct : </span>
         <code className="text-surface-700 break-all">
-          /campaign/{campaignId}/template/{templateNum}
+          /campaign/{canonicalId}/template/{templateNum}
         </code>
         <span className="text-surface-400 text-xs ml-2">(partagez ou enregistrez ce lien pour y accéder plus tard)</span>
       </div>
