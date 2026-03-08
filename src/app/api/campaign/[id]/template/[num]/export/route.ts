@@ -10,7 +10,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: `Template #${templateNumber} non trouvé` }, { status: 404 });
   }
 
-  const format = new URL(_request.url).searchParams.get('format') || 'html';
+  const url = new URL(_request.url);
+  const format = url.searchParams.get('format') || 'html';
+  const inline = url.searchParams.get('inline') === 'true';
 
   if (format === 'mjml') {
     return new NextResponse(template.mjmlCode || '', {
@@ -21,10 +23,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     });
   }
 
+  const disposition = inline
+    ? 'inline'
+    : `attachment; filename="template-${templateNumber}.html"`;
+
   return new NextResponse(template.htmlCode || '', {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Disposition': `attachment; filename="template-${templateNumber}.html"`,
+      'Content-Disposition': disposition,
     },
   });
 }
