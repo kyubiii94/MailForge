@@ -31,7 +31,8 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = await db.getCampaign(id);
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
@@ -56,14 +57,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     if (templateNumber === 8) {
-      console.log(`[GenerateOne] Generating master template (#8) for campaign ${id}...`);
+      console.log(`[GenerateOne] Generating master template (#8) for campaign ${campaignId}...`);
       const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
       const designSpecs = JSON.stringify(masterData.designSpecs, null, 2);
       const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const headHtml = headMatch ? headMatch[0] : '';
 
-      const existing = await db.getTemplateByCampaignAndNumber(id, 8);
+      const existing = await db.getTemplateByCampaignAndNumber(campaignId, 8);
       const template = existing
         ? (await db.updateTemplate(existing.id, {
             subjectLine: masterData.subjectLine || '',
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             coherenceTips: masterData.coherenceTips || '',
           }))!
         : await db.createTemplate({
-            campaignId: id,
+            campaignId,
             templateNumber: 8,
             templateType: 'Campaign Master Template',
             subjectLine: masterData.subjectLine || '',
@@ -104,10 +105,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: `Type de template #${templateNumber} inconnu` }, { status: 400 });
     }
 
-    console.log(`[GenerateOne] Generating template #${templateNumber} (${typeInfo.type}) for campaign ${id}...`);
+    console.log(`[GenerateOne] Generating template #${templateNumber} (${typeInfo.type}) for campaign ${campaignId}...`);
     const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber, null);
 
-    const existing = await db.getTemplateByCampaignAndNumber(id, templateNumber);
+    const existing = await db.getTemplateByCampaignAndNumber(campaignId, templateNumber);
     const template = existing
       ? (await db.updateTemplate(existing.id, {
           subjectLine: data.subjectLine || '',
@@ -121,8 +122,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           coherenceTips: data.coherenceTips || '',
         }))!
       : await db.createTemplate({
-          campaignId: id,
-          templateNumber,
+campaignId,
+            templateNumber,
           templateType: typeInfo.type,
           subjectLine: data.subjectLine || '',
           previewText: data.previewText || '',

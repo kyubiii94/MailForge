@@ -3,9 +3,10 @@ import { db } from '@/lib/db';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string; num: string }> }) {
   const { id, num } = await params;
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
   const templateNumber = parseInt(num, 10);
 
-  const template = await db.getTemplateByCampaignAndNumber(id, templateNumber);
+  const template = await db.getTemplateByCampaignAndNumber(campaignId, templateNumber);
   if (!template) {
     return NextResponse.json({ error: `Template #${templateNumber} non trouvé` }, { status: 404 });
   }

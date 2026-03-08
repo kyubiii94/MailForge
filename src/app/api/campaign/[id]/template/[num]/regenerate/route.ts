@@ -31,9 +31,10 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string; num: string }> }) {
   const { id, num } = await params;
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
   const templateNumber = parseInt(num, 10);
 
-  const campaign = await db.getCampaign(id);
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
@@ -51,14 +52,14 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     if (templateNumber === 8) {
       data = await generateMasterTemplate(campaign.dna, siteContent);
     } else {
-      const masterTemplate = await db.getTemplateByCampaignAndNumber(id, 8);
+      const masterTemplate = await db.getTemplateByCampaignAndNumber(campaignId, 8);
       const masterDesignSpecs = masterTemplate ? JSON.stringify(masterTemplate.designSpecs, null, 2) : '';
       const headMatch = masterTemplate?.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const masterHeadHtml = headMatch ? headMatch[0] : '';
       data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
     }
 
-    const existing = await db.getTemplateByCampaignAndNumber(id, templateNumber);
+    const existing = await db.getTemplateByCampaignAndNumber(campaignId, templateNumber);
     let template;
 
     if (existing) {
@@ -75,7 +76,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       });
     } else {
       template = await db.createTemplate({
-        campaignId: id,
+        campaignId,
         templateNumber,
         templateType: typeInfo.type,
         subjectLine: data.subjectLine || '',

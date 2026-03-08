@@ -31,7 +31,8 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = await db.getCampaign(id);
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json();
   const selectedTypes: number[] = body.selectedTypes || campaign.selectedTemplateTypes || [1, 2, 3, 4, 8];
 
-  await db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
+  await db.updateCampaign(campaignId, { status: 'generating', selectedTemplateTypes: selectedTypes });
 
   const siteContent = await buildSiteContentFromClient(campaign.clientId);
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let masterHeadHtml = '';
 
     if (needsMaster) {
-      console.log(`[Generate] Generating master template (#8) for campaign ${id}...`);
+      console.log(`[Generate] Generating master template (#8) for campaign ${campaignId}...`);
       try {
         const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         masterHeadHtml = headMatch ? headMatch[0] : '';
 
         if (selectedTypes.includes(8)) {
-          const existing8 = await db.getTemplateByCampaignAndNumber(id, 8);
+          const existing8 = await db.getTemplateByCampaignAndNumber(campaignId, 8);
           const payload = {
             subjectLine: masterData.subjectLine || '',
             previewText: masterData.previewText || '',
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             coherenceTips: masterData.coherenceTips || '',
           };
           if (existing8) await db.updateTemplate(existing8.id, payload);
-          else await db.createTemplate({ campaignId: id, templateNumber: 8, templateType: 'Campaign Master Template', ...payload });
+          else await db.createTemplate({ campaignId, templateNumber: 8, templateType: 'Campaign Master Template', ...payload });
           results.push({ templateNumber: 8, status: 'ok' });
         }
       } catch (err) {
@@ -109,9 +110,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           accessibilityNotes: data.accessibilityNotes || '',
           coherenceTips: data.coherenceTips || '',
         };
-        const existing = await db.getTemplateByCampaignAndNumber(id, num);
+        const existing = await db.getTemplateByCampaignAndNumber(campaignId, num);
         if (existing) await db.updateTemplate(existing.id, payload);
-        else await db.createTemplate({ campaignId: id, templateNumber: num, templateType: typeInfo.type, ...payload });
+        else await db.createTemplate({ campaignId, templateNumber: num, templateType: typeInfo.type, ...payload });
         results.push({ templateNumber: num, status: 'ok' });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -121,12 +122,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const successCount = results.filter((r) => r.status === 'ok').length;
-    await db.updateCampaign(id, { status: successCount > 0 ? 'generated' : 'dna_ready' });
+    await db.updateCampaign(campaignId, { status: successCount > 0 ? 'generated' : 'dna_ready' });
 
-    const templates = await db.getTemplatesByCampaign(id);
+    const templates = await db.getTemplatesByCampaign(campaignId);
     return NextResponse.json({ results, templates });
   } catch (err) {
-    await db.updateCampaign(id, { status: 'dna_ready' });
+    await db.updateCampaign(campaignId, { status: 'dna_ready' });
     const message = err instanceof Error ? err.message : 'Erreur de génération';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -184,7 +184,8 @@ export default function CampaignPage() {
   }
 
   function openHtmlInNewTab(templateNumber: number) {
-    window.open(`/api/campaign/${campaignId}/template/${templateNumber}/export?format=html&inline=true`, '_blank');
+    const id = campaign?.id ?? campaignId;
+    window.open(`/api/campaign/${id}/template/${templateNumber}/export?format=html&inline=true`, '_blank');
   }
 
   if (loading) {
@@ -221,6 +222,7 @@ export default function CampaignPage() {
   const totalToGenerate = selectedTypes.includes(8) ? selectedTypes.length : selectedTypes.length + 1;
   const generatedCount = templates.length;
   const progressPercent = totalToGenerate > 0 ? Math.round((generatedCount / totalToGenerate) * 100) : 0;
+  const canonicalId = campaign.id;
 
   return (
     <div className="space-y-8">
@@ -325,7 +327,7 @@ export default function CampaignPage() {
             const isSelected = selectedTypes.includes(t.number);
             const generated = templates.find((tpl) => tpl.templateNumber === t.number);
             const genError = generationErrors.find((e) => e.templateNumber === t.number);
-            const templateUrl = `/campaign/${campaignId}/template/${t.number}`;
+            const templateUrl = `/campaign/${canonicalId}/template/${t.number}`;
             const cardClass = `p-4 rounded-xl border-2 text-left transition-all ${
               generated
                 ? 'border-brand-500 bg-brand-50 cursor-pointer hover:bg-brand-100'
@@ -510,7 +512,7 @@ export default function CampaignPage() {
 
                   <div className="flex flex-wrap gap-2">
                     <Link
-                      href={`/campaign/${campaignId}/template/${tpl.templateNumber}`}
+                      href={`/campaign/${canonicalId}/template/${tpl.templateNumber}`}
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50 hover:border-surface-300 transition-colors flex-1 min-w-0"
                     >
                       <Eye className="w-3.5 h-3.5 flex-shrink-0" />
@@ -521,7 +523,7 @@ export default function CampaignPage() {
                       size="sm"
                       title="Copier le lien direct vers ce template"
                       onClick={() => {
-                        const url = typeof window !== 'undefined' ? `${window.location.origin}/campaign/${campaignId}/template/${tpl.templateNumber}` : '';
+                        const url = typeof window !== 'undefined' ? `${window.location.origin}/campaign/${canonicalId}/template/${tpl.templateNumber}` : '';
                         navigator.clipboard?.writeText(url).then(() => { /* copied */ });
                       }}
                     >

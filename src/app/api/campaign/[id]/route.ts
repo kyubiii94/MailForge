@@ -3,23 +3,25 @@ import { db } from '@/lib/db';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = await db.getCampaign(id);
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
-  const templates = await db.getTemplatesByCampaign(id);
+  const templates = await db.getTemplatesByCampaign(campaignId);
   return NextResponse.json({ campaign, templates });
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = await db.getCampaign(id);
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
 
   const body = await request.json();
-  const updated = await db.updateCampaign(id, {
+  const updated = await db.updateCampaign(campaignId, {
     ...(body.clientId !== undefined && { clientId: body.clientId }),
     ...(body.dna && { dna: body.dna }),
     ...(body.name && { name: body.name }),
@@ -32,10 +34,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = await db.getCampaign(id);
+  const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
-  await db.deleteCampaign(id);
+  await db.deleteCampaign(campaignId);
   return NextResponse.json({ ok: true });
 }
