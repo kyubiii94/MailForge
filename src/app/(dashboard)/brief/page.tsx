@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import type { BriefMode } from '@/types';
 
-export default function BriefPage() {
+function BriefPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<BriefMode>('vague');
@@ -228,5 +228,17 @@ export default function BriefPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function BriefPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full" />
+      </div>
+    }>
+      <BriefPageContent />
+    </Suspense>
   );
 }
