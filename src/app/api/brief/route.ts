@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       const dna = await generateCampaignDNA(brief, crawledData);
       console.log('[Brief] DNA generated:', JSON.stringify(dna).slice(0, 300));
 
-      const campaign = db.createCampaign({
+      const campaign = await db.createCampaign({
         name: `${dna.marque.name} — Campagne newsletter`,
         brief,
         dna,
@@ -77,7 +77,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ campaign });
     }
 
-    // Mode vague
     const brief: CampaignBrief = {
       mode: 'vague',
       brand: body.brand || '',
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest) {
     const dna = await generateCampaignDNA(brief);
     console.log('[Brief] DNA generated:', JSON.stringify(dna).slice(0, 300));
 
-    const campaign = db.createCampaign({
+    const campaign = await db.createCampaign({
       name: `${brief.brand} — ${brief.objective}`,
       brief,
       dna,

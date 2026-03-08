@@ -8,12 +8,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Numéro de template invalide (1-8)' }, { status: 400 });
   }
 
-  const campaign = db.getCampaign(id);
+  const campaign = await db.getCampaign(id);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
 
-  const template = db.getTemplateByCampaignAndNumber(id, templateNumber);
+  const template = await db.getTemplateByCampaignAndNumber(id, templateNumber);
   if (!template) {
     return NextResponse.json({ error: `Template #${templateNumber} non trouvé` }, { status: 404 });
   }

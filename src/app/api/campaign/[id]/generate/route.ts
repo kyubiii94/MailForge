@@ -7,7 +7,7 @@ export const maxDuration = 300;
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const campaign = db.getCampaign(id);
+  const campaign = await db.getCampaign(id);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json();
   const selectedTypes: number[] = body.selectedTypes || campaign.selectedTemplateTypes || [1, 2, 3, 4, 8];
 
-  db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
-  db.deleteTemplatesByCampaign(id);
+  await db.updateCampaign(id, { status: 'generating', selectedTemplateTypes: selectedTypes });
+  await db.deleteTemplatesByCampaign(id);
 
   const results: { templateNumber: number; status: string; error?: string }[] = [];
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         masterHeadHtml = headMatch ? headMatch[0] : '';
 
         if (selectedTypes.includes(8)) {
-          db.createTemplate({
+          await db.createTemplate({
             campaignId: id,
             templateNumber: 8,
             templateType: 'Campaign Master Template',
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       try {
         const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num);
 
-        db.createTemplate({
+        await db.createTemplate({
           campaignId: id,
           templateNumber: num,
           templateType: typeInfo.type,
@@ -96,12 +96,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const successCount = results.filter((r) => r.status === 'ok').length;
-    db.updateCampaign(id, { status: successCount > 0 ? 'generated' : 'dna_ready' });
+    await db.updateCampaign(id, { status: successCount > 0 ? 'generated' : 'dna_ready' });
 
-    const templates = db.getTemplatesByCampaign(id);
+    const templates = await db.getTemplatesByCampaign(id);
     return NextResponse.json({ results, templates });
   } catch (err) {
-    db.updateCampaign(id, { status: 'dna_ready' });
+    await db.updateCampaign(id, { status: 'dna_ready' });
     const message = err instanceof Error ? err.message : 'Erreur de génération';
     return NextResponse.json({ error: message }, { status: 500 });
   }

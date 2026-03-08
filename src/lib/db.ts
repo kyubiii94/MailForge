@@ -1,99 +1,151 @@
 /**
- * In-memory database for MVP.
- * Replace with PostgreSQL/Supabase in production.
+ * Database access layer — Neon PostgreSQL via Drizzle ORM.
+ * Exposes the same API as the old in-memory db so all routes continue to work.
  */
 
-import type { Campaign, NewsletterTemplate, Workspace } from '@/types';
-import { generateId } from './utils';
+import { eq, and, desc, asc } from 'drizzle-orm';
+import { getDb, schema } from './db/index';
+import type { Campaign, NewsletterTemplate } from '@/types';
 
-class InMemoryDB {
-  workspaces: Map<string, Workspace> = new Map();
-  campaigns: Map<string, Campaign> = new Map();
-  templates: Map<string, NewsletterTemplate> = new Map();
+// ─── Campaigns ──────────────────────────────────────────────────────────────
 
-  constructor() {
-    const defaultWorkspace: Workspace = {
-      id: '00000000-0000-0000-0000-000000000001',
-      name: 'Mon Workspace',
-      createdAt: new Date().toISOString(),
-    };
-    this.workspaces.set(defaultWorkspace.id, defaultWorkspace);
-  }
+export const db = {
+  async createCampaign(data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>): Promise<Campaign> {
+    const d = getDb();
+    const [row] = await d.insert(schema.campaigns).values({
+      name: data.name,
+      brief: data.brief,
+      dna: data.dna,
+      status: data.status,
+      selectedTemplateTypes: data.selectedTemplateTypes,
+    }).returning();
+    return rowToCampaign(row);
+  },
 
-  // ─── Campaigns ────────────────────────────────────────────────────────────
+  async getCampaign(id: string): Promise<Campaign | undefined> {
+    const d = getDb();
+    const [row] = await d.select().from(schema.campaigns).where(eq(schema.campaigns.id, id)).limit(1);
+    return row ? rowToCampaign(row) : undefined;
+  },
 
-  createCampaign(data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>): Campaign {
-    const campaign: Campaign = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.campaigns.set(campaign.id, campaign);
-    return campaign;
-  }
+  async listCampaigns(): Promise<Campaign[]> {
+    const d = getDb();
+    const rows = await d.select().from(schema.campaigns).orderBy(desc(schema.campaigns.createdAt));
+    return rows.map(rowToCampaign);
+  },
 
-  getCampaign(id: string): Campaign | undefined {
-    return this.campaigns.get(id);
-  }
+  async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign | undefined> {
+    const d = getDb();
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.brief !== undefined) updates.brief = data.brief;
+    if (data.dna !== undefined) updates.dna = data.dna;
+    if (data.status !== undefined) updates.status = data.status;
+    if (data.selectedTemplateTypes !== undefined) updates.selectedTemplateTypes = data.selectedTemplateTypes;
 
-  listCampaigns(): Campaign[] {
-    return Array.from(this.campaigns.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }
+    const [row] = await d.update(schema.campaigns).set(updates).where(eq(schema.campaigns.id, id)).returning();
+    return row ? rowToCampaign(row) : undefined;
+  },
 
-  updateCampaign(id: string, data: Partial<Campaign>): Campaign | undefined {
-    const existing = this.campaigns.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
-    this.campaigns.set(id, updated);
-    return updated;
-  }
+  // ─── Templates ──────────────────────────────────────────────────────────────
 
-  // ─── Newsletter Templates ─────────────────────────────────────────────────
+  async createTemplate(data: Omit<NewsletterTemplate, 'id' | 'createdAt'>): Promise<NewsletterTemplate> {
+    const d = getDb();
+    const [row] = await d.insert(schema.templates).values({
+      campaignId: data.campaignId,
+      templateNumber: data.templateNumber,
+      templateType: data.templateType,
+      subjectLine: data.subjectLine,
+      previewText: data.previewText,
+      layoutDescription: data.layoutDescription,
+      designSpecs: data.designSpecs,
+      htmlCode: data.htmlCode,
+      mjmlCode: data.mjmlCode,
+      darkModeOverrides: data.darkModeOverrides,
+      accessibilityNotes: data.accessibilityNotes,
+      coherenceTips: data.coherenceTips,
+    }).returning();
+    return rowToTemplate(row);
+  },
 
-  createTemplate(data: Omit<NewsletterTemplate, 'id' | 'createdAt'>): NewsletterTemplate {
-    const template: NewsletterTemplate = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-    };
-    this.templates.set(template.id, template);
-    return template;
-  }
+  async getTemplate(id: string): Promise<NewsletterTemplate | undefined> {
+    const d = getDb();
+    const [row] = await d.select().from(schema.templates).where(eq(schema.templates.id, id)).limit(1);
+    return row ? rowToTemplate(row) : undefined;
+  },
 
-  getTemplate(id: string): NewsletterTemplate | undefined {
-    return this.templates.get(id);
-  }
+  async getTemplateByCampaignAndNumber(campaignId: string, templateNumber: number): Promise<NewsletterTemplate | undefined> {
+    const d = getDb();
+    const [row] = await d.select().from(schema.templates)
+      .where(and(eq(schema.templates.campaignId, campaignId), eq(schema.templates.templateNumber, templateNumber)))
+      .limit(1);
+    return row ? rowToTemplate(row) : undefined;
+  },
 
-  getTemplateByCampaignAndNumber(campaignId: string, templateNumber: number): NewsletterTemplate | undefined {
-    return Array.from(this.templates.values()).find(
-      (t) => t.campaignId === campaignId && t.templateNumber === templateNumber
-    );
-  }
+  async getTemplatesByCampaign(campaignId: string): Promise<NewsletterTemplate[]> {
+    const d = getDb();
+    const rows = await d.select().from(schema.templates)
+      .where(eq(schema.templates.campaignId, campaignId))
+      .orderBy(asc(schema.templates.templateNumber));
+    return rows.map(rowToTemplate);
+  },
 
-  getTemplatesByCampaign(campaignId: string): NewsletterTemplate[] {
-    return Array.from(this.templates.values())
-      .filter((t) => t.campaignId === campaignId)
-      .sort((a, b) => a.templateNumber - b.templateNumber);
-  }
+  async updateTemplate(id: string, data: Partial<NewsletterTemplate>): Promise<NewsletterTemplate | undefined> {
+    const d = getDb();
+    const updates: Record<string, unknown> = {};
+    if (data.subjectLine !== undefined) updates.subjectLine = data.subjectLine;
+    if (data.previewText !== undefined) updates.previewText = data.previewText;
+    if (data.layoutDescription !== undefined) updates.layoutDescription = data.layoutDescription;
+    if (data.designSpecs !== undefined) updates.designSpecs = data.designSpecs;
+    if (data.htmlCode !== undefined) updates.htmlCode = data.htmlCode;
+    if (data.mjmlCode !== undefined) updates.mjmlCode = data.mjmlCode;
+    if (data.darkModeOverrides !== undefined) updates.darkModeOverrides = data.darkModeOverrides;
+    if (data.accessibilityNotes !== undefined) updates.accessibilityNotes = data.accessibilityNotes;
+    if (data.coherenceTips !== undefined) updates.coherenceTips = data.coherenceTips;
 
-  updateTemplate(id: string, data: Partial<NewsletterTemplate>): NewsletterTemplate | undefined {
-    const existing = this.templates.get(id);
-    if (!existing) return undefined;
-    const updated = { ...existing, ...data };
-    this.templates.set(id, updated);
-    return updated;
-  }
+    const [row] = await d.update(schema.templates).set(updates).where(eq(schema.templates.id, id)).returning();
+    return row ? rowToTemplate(row) : undefined;
+  },
 
-  deleteTemplatesByCampaign(campaignId: string): void {
-    const toDelete: string[] = [];
-    this.templates.forEach((t, id) => {
-      if (t.campaignId === campaignId) toDelete.push(id);
-    });
-    toDelete.forEach((id) => this.templates.delete(id));
-  }
+  async deleteTemplatesByCampaign(campaignId: string): Promise<void> {
+    const d = getDb();
+    await d.delete(schema.templates).where(eq(schema.templates.campaignId, campaignId));
+  },
+};
+
+// ─── Row mappers ──────────────────────────────────────────────────────────────
+
+type CampaignRow = typeof schema.campaigns.$inferSelect;
+type TemplateRow = typeof schema.templates.$inferSelect;
+
+function rowToCampaign(r: CampaignRow): Campaign {
+  return {
+    id: r.id,
+    name: r.name,
+    brief: r.brief,
+    dna: r.dna,
+    status: r.status as Campaign['status'],
+    selectedTemplateTypes: r.selectedTemplateTypes,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
 }
 
-export const db = new InMemoryDB();
+function rowToTemplate(r: TemplateRow): NewsletterTemplate {
+  return {
+    id: r.id,
+    campaignId: r.campaignId,
+    templateNumber: r.templateNumber,
+    templateType: r.templateType,
+    subjectLine: r.subjectLine,
+    previewText: r.previewText,
+    layoutDescription: r.layoutDescription,
+    designSpecs: r.designSpecs,
+    htmlCode: r.htmlCode,
+    mjmlCode: r.mjmlCode,
+    darkModeOverrides: r.darkModeOverrides,
+    accessibilityNotes: r.accessibilityNotes,
+    coherenceTips: r.coherenceTips,
+    createdAt: r.createdAt.toISOString(),
+  };
+}

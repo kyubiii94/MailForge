@@ -9,7 +9,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   const { id, num } = await params;
   const templateNumber = parseInt(num, 10);
 
-  const campaign = db.getCampaign(id);
+  const campaign = await db.getCampaign(id);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
@@ -25,18 +25,18 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     if (templateNumber === 8) {
       data = await generateMasterTemplate(campaign.dna);
     } else {
-      const masterTemplate = db.getTemplateByCampaignAndNumber(id, 8);
+      const masterTemplate = await db.getTemplateByCampaignAndNumber(id, 8);
       const masterDesignSpecs = masterTemplate ? JSON.stringify(masterTemplate.designSpecs, null, 2) : '';
       const headMatch = masterTemplate?.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const masterHeadHtml = headMatch ? headMatch[0] : '';
       data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber);
     }
 
-    const existing = db.getTemplateByCampaignAndNumber(id, templateNumber);
+    const existing = await db.getTemplateByCampaignAndNumber(id, templateNumber);
     let template;
 
     if (existing) {
-      template = db.updateTemplate(existing.id, {
+      template = await db.updateTemplate(existing.id, {
         subjectLine: data.subjectLine || '',
         previewText: data.previewText || '',
         layoutDescription: data.layoutDescription,
@@ -48,7 +48,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         coherenceTips: data.coherenceTips || '',
       });
     } else {
-      template = db.createTemplate({
+      template = await db.createTemplate({
         campaignId: id,
         templateNumber,
         templateType: typeInfo.type,

@@ -5,7 +5,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { id, num } = await params;
   const templateNumber = parseInt(num, 10);
 
-  const template = db.getTemplateByCampaignAndNumber(id, templateNumber);
+  const template = await db.getTemplateByCampaignAndNumber(id, templateNumber);
   if (!template) {
     return NextResponse.json({ error: `Template #${templateNumber} non trouvé` }, { status: 404 });
   }
