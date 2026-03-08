@@ -72,9 +72,6 @@ export default function CampaignPage() {
       if (c?.status === 'generating') hasSeenGeneratingRef.current = true;
       const elapsed = Date.now() - pollStartRef.current;
       const canStopOnFinal = hasSeenGeneratingRef.current || elapsed > 15000;
-      // #region agent log
-      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:pollTick', message: 'poll tick', data: { campaignStatus: c?.status, canStopOnFinal, hasSeenGenerating: hasSeenGeneratingRef.current, elapsed }, timestamp: Date.now(), hypothesisId: 'H1,H3' }) }).catch(() => {});
-      // #endregion
       if (c && (c.status === 'generated' || c.status === 'dna_ready') && canStopOnFinal) {
         stopPolling();
         setIsGenerating(false);
@@ -105,9 +102,6 @@ export default function CampaignPage() {
   }
 
   async function handleGenerate() {
-    // #region agent log
-    fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:handleGenerate:entry', message: 'handleGenerate called', data: { campaignId, selectedCount: selectedTypes.length }, timestamp: Date.now(), hypothesisId: 'H1' }) }).catch(() => {});
-    // #endregion
     setIsGenerating(true);
     setGenerationResults([]);
     setError('');
@@ -117,23 +111,22 @@ export default function CampaignPage() {
     try {
       const typesToGenerate = selectedTypes.includes(8) ? selectedTypes : [...selectedTypes, 8];
 
+      const controller = new AbortController();
+      const timeoutMs = 90 * 1000; // 90 s pour éviter d'attendre indéfiniment (ex. limite Vercel 60 s)
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
       const res = await fetch(`/api/campaign/${campaignId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selectedTypes: typesToGenerate }),
+        signal: controller.signal,
       });
-
-      // #region agent log
-      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:afterFetch', message: 'fetch returned', data: { status: res.status, ok: res.ok }, timestamp: Date.now(), hypothesisId: 'H1,H4,H5' }) }).catch(() => {});
-      // #endregion
+      clearTimeout(timeoutId);
 
       let data: { results?: { templateNumber: number; status: string; error?: string }[]; templates?: NewsletterTemplate[]; error?: string };
       try {
         data = await res.json();
       } catch {
-        // #region agent log
-        fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:jsonThrow', message: 'res.json() threw', data: { status: res.status }, timestamp: Date.now(), hypothesisId: 'H5' }) }).catch(() => {});
-        // #endregion
         // Réponse non-JSON (ex: 502/504 HTML) — le body est déjà consommé
         if (res.status >= 500) {
           setError('Le serveur a mis trop de temps à répondre. Les templates déjà générés apparaîtront ci-dessous dans quelques secondes.');
@@ -148,16 +141,17 @@ export default function CampaignPage() {
       }
 
       if (!res.ok) {
-        setError(data.error || 'Erreur lors de la génération');
+        const apiError = data.error || 'Erreur lors de la génération';
+        setError(apiError);
+        if (res.status === 503 && apiError.toLowerCase().includes('gemini')) {
+          setError(`${apiError} Ajoutez GEMINI_API_KEY dans Vercel → Settings → Environment Variables (Production).`);
+        }
         stopPolling();
         setIsGenerating(false);
         generateRequestRef.current = false;
         return;
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:successPath', message: 'success path setting state', data: { resultsLen: (data.results || []).length, templatesLen: (data.templates || []).length }, timestamp: Date.now(), hypothesisId: 'H2,H5' }) }).catch(() => {});
-      // #endregion
       setGenerationResults(data.results || []);
       setTemplates(data.templates || []);
       setCampaign((prev) => (prev ? { ...prev, status: 'generated' as const, selectedTemplateTypes: typesToGenerate } : null));
@@ -165,16 +159,16 @@ export default function CampaignPage() {
       setIsGenerating(false);
       generateRequestRef.current = false;
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:catch', message: 'handleGenerate catch', data: { errMsg: err instanceof Error ? err.message : String(err) }, timestamp: Date.now(), hypothesisId: 'H3,H4' }) }).catch(() => {});
-      // #endregion
       generateRequestRef.current = false;
-      setError('Erreur de connexion. Un rafraîchissement automatique va récupérer les templates déjà générés.');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isTimeout = /timeout|504|timed out|aborted/i.test(errMsg) || (err instanceof Error && err.name === 'AbortError');
+      setError(
+        isTimeout
+          ? 'La génération a pris trop de temps (limite Vercel). Générez 1 à 2 templates à la fois, ou passez sur un plan Vercel avec timeout plus long.'
+          : 'Erreur de connexion. Vérifiez que GEMINI_API_KEY est définie sur Vercel (Settings → Environment Variables). Un rafraîchissement récupérera les templates déjà générés.'
+      );
       // Un premier poll rapide pour mettre à jour l'UI
       const c = await fetchCampaign(true);
-      // #region agent log
-      fetch('http://127.0.0.1:7431/ingest/968ac623-3680-436d-a229-5b21b3a15e3e', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '76820e' }, body: JSON.stringify({ sessionId: '76820e', location: 'campaign/[id]/page.tsx:afterCatchFetch', message: 'after fetchCampaign in catch', data: { campaignStatus: c?.status }, timestamp: Date.now(), hypothesisId: 'H3' }) }).catch(() => {});
-      // #endregion
       if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
         stopPolling();
         setIsGenerating(false);
@@ -397,6 +391,17 @@ export default function CampaignPage() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Message si génération retournée mais 0 template (ex: clé API manquante sur Vercel) */}
+      {!isGenerating && generationResults.length > 0 && templates.length === 0 && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <p className="font-medium">Aucun template n&apos;a pu être généré.</p>
+          <p className="mt-1">
+            Sur Vercel, ajoutez <strong>GEMINI_API_KEY</strong> dans Settings → Environment Variables (Production), puis redéployez.
+            En local, vérifiez votre fichier .env. Sur l&apos;offre gratuite Vercel, le timeout peut couper la génération : essayez avec 1 à 2 templates seulement.
+          </p>
+        </div>
       )}
 
       {/* Generated Templates Display */}
