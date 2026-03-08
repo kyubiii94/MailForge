@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Campaign, BrandDNA } from '@/types';
+import type { Campaign, BrandDNA, Client } from '@/types';
 import { formatDate } from '@/lib/utils';
 import {
   FolderOpen,
@@ -27,14 +27,18 @@ const statusMap = {
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [brandDNA, setBrandDNA] = useState<BrandDNA | null>(null);
   const [newCampaignName, setNewCampaignName] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [filterClientId, setFilterClientId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchCampaigns();
+    fetchClients();
     fetchBrandDNA();
   }, []);
 
@@ -46,7 +50,19 @@ export default function CampaignsPage() {
         setCampaigns(data);
       }
     } catch {
-      // Silently fail for now
+      // Silently fail
+    }
+  };
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch(`/api/clients?workspaceId=${DEFAULT_WORKSPACE_ID}`);
+      if (res.ok) {
+        const data = await res.json();
+        setClients(data);
+      }
+    } catch {
+      // Silently fail
     }
   };
 
@@ -64,6 +80,10 @@ export default function CampaignsPage() {
 
   const handleCreateCampaign = async () => {
     if (!newCampaignName.trim()) return;
+    if (!selectedClientId) {
+      setError('Veuillez sélectionner un client.');
+      return;
+    }
     if (!brandDNA) {
       setError('Veuillez d\'abord analyser l\'ADN de votre marque.');
       return;
@@ -78,6 +98,7 @@ export default function CampaignsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId: DEFAULT_WORKSPACE_ID,
+          clientId: selectedClientId,
           brandDnaId: brandDNA.id,
           name: newCampaignName.trim(),
         }),
@@ -95,6 +116,15 @@ export default function CampaignsPage() {
       setIsCreating(false);
     }
   };
+
+  const getClientName = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    return client?.name || '';
+  };
+
+  const filteredCampaigns = filterClientId
+    ? campaigns.filter((c) => c.clientId === filterClientId)
+    : campaigns;
 
   return (
     <div className="space-y-8">
@@ -133,32 +163,82 @@ export default function CampaignsPage() {
         </Card>
       )}
 
+      {/* No clients warning */}
+      {clients.length === 0 && (
+        <Card className="border-blue-200 bg-blue-50" padding="md">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-800">Aucun client</p>
+              <p className="text-sm text-blue-600 mt-1">
+                Créez d&apos;abord un client avant de lancer une campagne.
+              </p>
+              <Link href="/clients/new" className="text-sm font-medium text-blue-700 underline mt-2 inline-block">
+                Créer un client →
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Filter by client */}
+      {clients.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-surface-500">Filtrer par client :</label>
+          <select
+            value={filterClientId}
+            onChange={(e) => setFilterClientId(e.target.value)}
+            className="rounded-lg border border-surface-200 px-3 py-1.5 text-sm text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="">Tous les clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Create form */}
       {showCreateForm && (
         <Card variant="elevated" padding="lg">
           <h2 className="text-lg font-semibold text-surface-900 mb-4">Nouvelle Campagne</h2>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Nom de la campagne (ex: Newsletter Mars 2026)"
-                value={newCampaignName}
-                onChange={(e) => setNewCampaignName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateCampaign()}
-              />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1.5">Client *</label>
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="w-full rounded-lg border border-surface-200 px-3 py-2 text-sm text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              >
+                <option value="">Sélectionner un client</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} — {c.sector}</option>
+                ))}
+              </select>
             </div>
-            <Button onClick={handleCreateCampaign} isLoading={isCreating}>
-              Créer
-            </Button>
-            <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
-              Annuler
-            </Button>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Nom de la campagne (ex: Newsletter Mars 2026)"
+                  value={newCampaignName}
+                  onChange={(e) => setNewCampaignName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCampaign()}
+                />
+              </div>
+              <Button onClick={handleCreateCampaign} isLoading={isCreating}>
+                Créer
+              </Button>
+              <Button variant="ghost" onClick={() => setShowCreateForm(false)}>
+                Annuler
+              </Button>
+            </div>
           </div>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         </Card>
       )}
 
       {/* Campaign list */}
-      {campaigns.length === 0 ? (
+      {filteredCampaigns.length === 0 ? (
         <div className="text-center py-16">
           <Mail className="w-12 h-12 text-surface-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-surface-700 mb-2">Aucune campagne</h3>
@@ -168,8 +248,9 @@ export default function CampaignsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {campaigns.map((campaign) => {
+          {filteredCampaigns.map((campaign) => {
             const status = statusMap[campaign.status];
+            const clientName = getClientName(campaign.clientId);
 
             return (
               <Link
@@ -188,6 +269,7 @@ export default function CampaignsPage() {
                           {campaign.name}
                         </h3>
                         <p className="text-xs text-surface-400 mt-0.5">
+                          {clientName && <span className="text-surface-500">{clientName} &middot; </span>}
                           Créée le {formatDate(campaign.createdAt)}
                         </p>
                       </div>

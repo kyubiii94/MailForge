@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
 
+    // Fetch client if brand DNA has a clientId
+    const client = brandDNA.clientId ? db.getClient(brandDNA.clientId) : undefined;
+
     const textContent = db.getTextContent(textContentId);
     if (!textContent) {
       return NextResponse.json({ error: 'Text content not found' }, { status: 404 });
@@ -46,6 +49,7 @@ export async function POST(request: NextRequest) {
         // Generate MJML with Claude
         const { mjml } = await generateEmailDesign({
           brandDNA,
+          client,
           textContent: {
             subject: textContent.subject,
             preheader: textContent.preheader,

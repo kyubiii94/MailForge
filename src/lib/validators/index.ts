@@ -5,6 +5,7 @@ import { z } from 'zod';
 export const extractBrandDNASchema = z.object({
   siteUrl: z.string().url('Please enter a valid URL'),
   workspaceId: z.string().uuid().optional(),
+  clientId: z.string().uuid().optional(),
 });
 
 export const updateBrandDNASchema = z.object({
@@ -75,9 +76,47 @@ export const generateDesignSchema = z.object({
 
 export const createCampaignSchema = z.object({
   workspaceId: z.string().uuid(),
+  clientId: z.string().uuid(),
   brandDnaId: z.string().uuid(),
   name: z.string().min(1, 'Campaign name is required').max(255),
+  trigger: z.string().max(500).optional(),
+  objective: z.string().max(500).optional(),
+  period: z.object({
+    start: z.string().nullable().default(null),
+    end: z.string().nullable().default(null),
+    frequency: z.string().nullable().default(null),
+  }).optional(),
 });
+
+export const createClientSchema = z.object({
+  workspaceId: z.string().uuid(),
+  name: z.string().min(1, 'Client name is required').max(255),
+  sector: z.string().min(1).max(255),
+  positioning: z.string().max(500).optional().default(''),
+  website: z.string().url().nullable().optional().default(null),
+  socialLinks: z.object({
+    instagram: z.string().optional(),
+    tiktok: z.string().optional(),
+    linkedin: z.string().optional(),
+    pinterest: z.string().optional(),
+  }).optional().default({}),
+  distribution: z.array(z.string()).optional().default([]),
+  toneOfVoice: z.object({
+    style: z.string(),
+    language: z.array(z.string()).default(['fr']),
+    do: z.array(z.string()).default([]),
+    dont: z.array(z.string()).default([]),
+  }).optional(),
+  technicalPrefs: z.object({
+    esp: z.enum(['mailchimp', 'klaviyo', 'brevo', 'other']).nullable().default(null),
+    mergeTagsFormat: z.string().default('*|TAG|*'),
+    darkMode: z.boolean().default(true),
+    languages: z.array(z.string()).default(['fr']),
+  }).optional(),
+  notes: z.string().max(2000).optional().default(''),
+});
+
+export const updateClientSchema = createClientSchema.partial().omit({ workspaceId: true });
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1, 'Workspace name is required').max(255),
@@ -90,4 +129,6 @@ export type ParseTextInput = z.infer<typeof parseTextSchema>;
 export type ExtractTextFromUrlInput = z.infer<typeof extractTextFromUrlSchema>;
 export type GenerateDesignInput = z.infer<typeof generateDesignSchema>;
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
+export type CreateClientInput = z.infer<typeof createClientSchema>;
+export type UpdateClientInput = z.infer<typeof updateClientSchema>;
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;

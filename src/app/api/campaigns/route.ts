@@ -17,12 +17,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { workspaceId, brandDnaId, name } = parsed.data;
+    const { workspaceId, clientId, brandDnaId, name, trigger, objective, period } = parsed.data;
 
     const campaign = db.createCampaign({
       workspaceId,
+      clientId,
       brandDnaId,
       name,
+      trigger: trigger || null,
+      objective: objective || null,
+      period: period || null,
       status: 'draft',
       textSource: null,
       visualSource: null,
@@ -37,15 +41,22 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/campaigns?workspaceId=xxx - List campaigns for a workspace.
+ * GET /api/campaigns?workspaceId=xxx&clientId=xxx - List campaigns.
  */
 export async function GET(request: NextRequest) {
   const workspaceId = request.nextUrl.searchParams.get('workspaceId');
+  const clientId = request.nextUrl.searchParams.get('clientId');
 
   if (!workspaceId) {
     return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
   }
 
-  const campaigns = db.listCampaigns(workspaceId);
+  let campaigns = db.listCampaigns(workspaceId);
+
+  // Filter by client if provided
+  if (clientId) {
+    campaigns = campaigns.filter((c) => c.clientId === clientId);
+  }
+
   return NextResponse.json(campaigns);
 }

@@ -8,8 +8,40 @@ export interface Workspace {
   createdAt: string;
 }
 
+export interface Client {
+  id: string;
+  workspaceId: string;
+  name: string;
+  sector: string;
+  positioning: string;
+  website: string | null;
+  socialLinks: {
+    instagram?: string;
+    tiktok?: string;
+    linkedin?: string;
+    pinterest?: string;
+  };
+  distribution: string[];
+  toneOfVoice: {
+    style: string;
+    language: string[];
+    do: string[];
+    dont: string[];
+  };
+  technicalPrefs: {
+    esp: 'mailchimp' | 'klaviyo' | 'brevo' | 'other' | null;
+    mergeTagsFormat: string;
+    darkMode: boolean;
+    languages: string[];
+  };
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BrandDNA {
   id: string;
+  clientId: string;
   workspaceId: string;
   siteUrl: string;
   typography: Typography;
@@ -64,8 +96,16 @@ export interface Keywords {
 export interface Campaign {
   id: string;
   workspaceId: string;
+  clientId: string;
   brandDnaId: string;
   name: string;
+  trigger: string | null;
+  objective: string | null;
+  period: {
+    start: string | null;
+    end: string | null;
+    frequency: string | null;
+  } | null;
   status: 'draft' | 'generating' | 'review' | 'exported';
   textSource: 'direct' | 'ai_improved' | 'url_extracted' | null;
   visualSource: 'uploaded' | 'ai_generated' | 'url_extracted' | null;

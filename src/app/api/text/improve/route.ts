@@ -26,11 +26,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
     }
 
+    // Fetch client if brand DNA has a clientId
+    const client = brandDNA.clientId ? db.getClient(brandDNA.clientId) : undefined;
+
+    // Fetch campaign for trigger info
+    const campaign = db.getCampaign(campaignId);
+
     // Call Claude AI
     const improved = await improveEmailDraft({
       draft,
       brandDNA,
+      client,
       campaignGoal,
+      campaignTrigger: campaign?.trigger || undefined,
       desiredCTA: desiredCTA || '',
       targetLength: targetLength || 300,
       tone,

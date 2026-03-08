@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { BrandDNA, EditorialTone } from '@/types';
+import type { BrandDNA, Client, EditorialTone } from '@/types';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -19,6 +19,23 @@ function extractJSON(text: string): string {
     throw new Error('Failed to parse Claude response as JSON');
   }
   return jsonMatch[0];
+}
+
+/**
+ * Build client context block for AI prompts.
+ */
+function buildClientContext(client: Client): string {
+  const parts = [
+    `## CLIENT`,
+    `- Marque : ${client.name}`,
+    `- Secteur : ${client.sector}`,
+  ];
+  if (client.positioning) parts.push(`- Positionnement : ${client.positioning}`);
+  if (client.toneOfVoice?.style) parts.push(`- Ton : ${client.toneOfVoice.style}`);
+  if (client.toneOfVoice?.do?.length) parts.push(`- À faire : ${client.toneOfVoice.do.join(', ')}`);
+  if (client.toneOfVoice?.dont?.length) parts.push(`- À éviter : ${client.toneOfVoice.dont.join(', ')}`);
+  if (client.distribution?.length) parts.push(`- Distribution : ${client.distribution.join(', ')}`);
+  return parts.join('\n');
 }
 
 /**
@@ -63,13 +80,15 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
 }
 
 /**
- * Improve a marketing email draft using Claude AI, aligned with brand DNA.
+ * Improve a marketing email draft using Claude AI, aligned with brand DNA and client profile.
  * Returns structured email content: subject, preheader, headline, body, CTA.
  */
 export async function improveEmailDraft(params: {
   draft: string;
   brandDNA: BrandDNA;
+  client?: Client;
   campaignGoal: string;
+  campaignTrigger?: string;
   desiredCTA: string;
   targetLength: number;
   tone?: string;
@@ -80,7 +99,9 @@ export async function improveEmailDraft(params: {
   body: string;
   ctaText: string;
 }> {
-  const { draft, brandDNA, campaignGoal, desiredCTA, targetLength, tone } = params;
+  const { draft, brandDNA, client, campaignGoal, campaignTrigger, desiredCTA, targetLength, tone } = params;
+
+  const clientBlock = client ? buildClientContext(client) : '';
 
   const message = await anthropic.messages.create({
     model: MODEL,
@@ -90,20 +111,25 @@ export async function improveEmailDraft(params: {
         role: 'user',
         content: `Tu es un expert en email marketing avec 15 ans d'expérience.
 
-Voici l'ADN de la marque :
+${clientBlock}
+
+## BRAND DNA
 - Ton : ${tone || brandDNA.editorialTone.tone}
 - Mots-clés de la marque : ${brandDNA.keywords.keywords.join(', ')}
 - Style : ${brandDNA.editorialTone.style_notes}
-- Couleur dominante : ${brandDNA.colors.primary}
+- Couleurs : primaire ${brandDNA.colors.primary}, accent ${brandDNA.colors.accent}
+- Typographies : titres "${brandDNA.typography.headingFont}", corps "${brandDNA.typography.bodyFont}"
 
-Voici le brouillon du client :
+## CAMPAGNE
+- Objectif : ${campaignGoal}
+${campaignTrigger ? `- Événement : ${campaignTrigger}` : ''}
+- CTA souhaité : ${desiredCTA || 'À déterminer selon le contexte'}
+- Longueur cible : ${targetLength} mots
+
+## BROUILLON
 """
 ${draft}
 """
-
-Objectif de la campagne : ${campaignGoal}
-CTA souhaité : ${desiredCTA || 'À déterminer selon le contexte'}
-Longueur cible : ${targetLength} mots
 
 Génère un email marketing optimisé en respectant strictement le ton et le vocabulaire de la marque.
 
@@ -165,10 +191,11 @@ Réponds UNIQUEMENT en JSON valide :
 }
 
 /**
- * Generate email HTML/MJML design using Claude AI based on brand DNA and content.
+ * Generate email HTML/MJML design using Claude AI based on brand DNA, client, and content.
  */
 export async function generateEmailDesign(params: {
   brandDNA: BrandDNA;
+  client?: Client;
   textContent: {
     subject: string;
     preheader: string;
@@ -180,13 +207,30 @@ export async function generateEmailDesign(params: {
   visualUrls: string[];
   variantNumber: number;
 }): Promise<{ mjml: string; html: string }> {
-  const { brandDNA, textContent, visualUrls, variantNumber } = params;
+  const { brandDNA, client, textContent, visualUrls, variantNumber } = params;
 
   const layoutStyles = [
     'layout centré avec hero image en haut, puis texte, puis CTA',
     'layout en Z avec image à gauche et texte à droite, alternance',
     'layout minimaliste texte-centré avec accents de couleur et CTA proéminent',
   ];
+
+  const clientBlock = client ? buildClientContext(client) : '';
+
+  // ESP-specific merge tags
+  let espInfo = '';
+  if (client?.technicalPrefs?.esp) {
+    const espTags: Record<string, string> = {
+      mailchimp: 'Merge tags Mailchimp : *|UNSUB|*, *|FNAME|*, *|MC:SUBJECT|*',
+      klaviyo: 'Merge tags Klaviyo : {{ unsubscribe_url }}, {{ first_name }}, {{ email.subject }}',
+      brevo: 'Merge tags Brevo : {{ unsubscribe }}, {{ contact.FIRSTNAME }}, {{ params.subject }}',
+    };
+    espInfo = espTags[client.technicalPrefs.esp] || '';
+  }
+
+  const darkModeInfo = client?.technicalPrefs?.darkMode !== false
+    ? '\n- Support dark mode : @media (prefers-color-scheme: dark), [data-ogsc] Outlook, color-scheme: light dark'
+    : '';
 
   const message = await anthropic.messages.create({
     model: MODEL,
@@ -196,12 +240,16 @@ export async function generateEmailDesign(params: {
         role: 'user',
         content: `Tu es un expert en design d'emails marketing HTML. Génère un email MJML complet.
 
-ADN de la marque :
+${clientBlock}
+
+## ADN DE MARQUE
 - Couleurs : primaire ${brandDNA.colors.primary}, secondaire ${brandDNA.colors.secondary}, accent ${brandDNA.colors.accent}, fond ${brandDNA.colors.background}, texte ${brandDNA.colors.text}
 - Typographies : titres "${brandDNA.typography.headingFont}", corps "${brandDNA.typography.bodyFont}"
 - Ton : ${brandDNA.editorialTone.tone}
+- Mots-clés : ${brandDNA.keywords.keywords.join(', ')}
+${espInfo ? `\n## ESP\n- ${espInfo}` : ''}
 
-Contenu de l'email :
+## CONTENU
 - Objet : ${textContent.subject}
 - Pré-header : ${textContent.preheader}
 - Titre : ${textContent.headline}
@@ -218,6 +266,8 @@ Règles strictes :
 - Texte ALT sur toutes les images
 - Compatible Outlook (MSO conditional comments)
 - Design responsive (mobile 375px)
+- Poids HTML < 102 Ko
+- Accessibilité : role="presentation" sur tables de layout, contraste 4.5:1${darkModeInfo}
 
 Génère le code MJML complet. Réponds UNIQUEMENT avec le code MJML, sans explications, entre les balises <mjml> et </mjml>.`,
       },

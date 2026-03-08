@@ -9,10 +9,12 @@ import {
   FolderOpen,
   Settings,
   Sparkles,
+  Users,
   Zap,
 } from 'lucide-react';
 
 const navItems = [
+  { href: '/clients', label: 'Clients', icon: Users },
   { href: '/brand-dna', label: 'ADN de Marque', icon: Dna },
   { href: '/campaigns', label: 'Campagnes', icon: FolderOpen },
 ];

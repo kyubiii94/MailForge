@@ -5,6 +5,7 @@
 
 import type {
   Workspace,
+  Client,
   BrandDNA,
   Campaign,
   TextContent,
@@ -15,6 +16,7 @@ import { generateId } from './utils';
 
 class InMemoryDB {
   workspaces: Map<string, Workspace> = new Map();
+  clients: Map<string, Client> = new Map();
   brandDNAs: Map<string, BrandDNA> = new Map();
   campaigns: Map<string, Campaign> = new Map();
   textContents: Map<string, TextContent> = new Map();
@@ -54,6 +56,39 @@ class InMemoryDB {
     return Array.from(this.workspaces.values());
   }
 
+  // --- Clients ---
+  createClient(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Client {
+    const client: Client = {
+      ...data,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.clients.set(client.id, client);
+    return client;
+  }
+
+  getClient(id: string): Client | undefined {
+    return this.clients.get(id);
+  }
+
+  listClients(workspaceId: string): Client[] {
+    return Array.from(this.clients.values())
+      .filter((c) => c.workspaceId === workspaceId);
+  }
+
+  updateClient(id: string, data: Partial<Client>): Client | undefined {
+    const existing = this.clients.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
+    this.clients.set(id, updated);
+    return updated;
+  }
+
+  deleteClient(id: string): boolean {
+    return this.clients.delete(id);
+  }
+
   // --- Brand DNA ---
   createBrandDNA(data: Omit<BrandDNA, 'id' | 'createdAt' | 'updatedAt'>): BrandDNA {
     const dna: BrandDNA = {
@@ -73,6 +108,12 @@ class InMemoryDB {
   getBrandDNAByWorkspace(workspaceId: string): BrandDNA | undefined {
     return Array.from(this.brandDNAs.values()).find(
       (dna) => dna.workspaceId === workspaceId
+    );
+  }
+
+  getBrandDNAByClient(clientId: string): BrandDNA | undefined {
+    return Array.from(this.brandDNAs.values()).find(
+      (dna) => dna.clientId === clientId
     );
   }
 
@@ -102,6 +143,12 @@ class InMemoryDB {
   listCampaigns(workspaceId: string): Campaign[] {
     return Array.from(this.campaigns.values()).filter(
       (c) => c.workspaceId === workspaceId
+    );
+  }
+
+  listCampaignsByClient(clientId: string): Campaign[] {
+    return Array.from(this.campaigns.values()).filter(
+      (c) => c.clientId === clientId
     );
   }
 

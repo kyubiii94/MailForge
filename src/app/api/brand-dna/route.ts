@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { siteUrl, workspaceId } = parsed.data;
+    const { siteUrl, workspaceId, clientId } = parsed.data;
     const wsId = workspaceId || '00000000-0000-0000-0000-000000000001';
 
     // Step 1: Crawl main pages
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Step 4: Save to database
     const brandDNA = db.createBrandDNA({
+      clientId: clientId || '',
       workspaceId: wsId,
       siteUrl,
       typography,
@@ -86,13 +87,22 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/brand-dna?workspaceId=xxx - Get brand DNA for a workspace.
+ * GET /api/brand-dna?workspaceId=xxx or ?clientId=xxx - Get brand DNA.
  */
 export async function GET(request: NextRequest) {
+  const clientId = request.nextUrl.searchParams.get('clientId');
   const workspaceId = request.nextUrl.searchParams.get('workspaceId');
 
+  if (clientId) {
+    const brandDNA = db.getBrandDNAByClient(clientId);
+    if (!brandDNA) {
+      return NextResponse.json({ error: 'Brand DNA not found' }, { status: 404 });
+    }
+    return NextResponse.json(brandDNA);
+  }
+
   if (!workspaceId) {
-    return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
+    return NextResponse.json({ error: 'workspaceId or clientId is required' }, { status: 400 });
   }
 
   const brandDNA = db.getBrandDNAByWorkspace(workspaceId);
