@@ -116,11 +116,31 @@ export default function TemplatePage() {
 
   if (!template) {
     return (
-      <div className="text-center py-16">
-        <p className="text-surface-500">Template introuvable</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push(`/campaign/${campaignId}`)}>
-          Retour à la campagne
-        </Button>
+      <div className="max-w-lg mx-auto text-center py-16 space-y-6">
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-6 text-left">
+          <p className="font-medium text-amber-900">Template introuvable</p>
+          <p className="text-sm text-amber-800 mt-1">
+            Ce template n’existe pas ou n’a pas encore été généré. Le détail de votre campagne (ADN, templates générés, bouton de génération) se trouve sur la fiche campagne.
+          </p>
+          {error && (
+            <p className="text-sm text-amber-700 mt-2 pt-2 border-t border-amber-200">{error}</p>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            size="lg"
+            onClick={() => router.push(`/campaign/${campaignId}`)}
+          >
+            Accéder à la fiche campagne
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => router.push('/campaigns')}
+          >
+            Voir la liste des campagnes
+          </Button>
+        </div>
       </div>
     );
   }

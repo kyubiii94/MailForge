@@ -180,11 +180,22 @@ export default function CampaignPage() {
 
   if (!campaign) {
     return (
-      <div className="text-center py-16">
-        <p className="text-surface-500">Campagne introuvable</p>
-        <Button variant="outline" className="mt-4" onClick={() => router.push('/brief')}>
-          Créer une campagne
-        </Button>
+      <div className="max-w-lg mx-auto text-center py-16 space-y-6">
+        <div className="rounded-xl bg-surface-50 border border-surface-200 p-6">
+          <p className="font-medium text-surface-900">Campagne introuvable</p>
+          <p className="text-sm text-surface-600 mt-1">
+            Cette campagne n’existe pas ou n’est plus accessible. Vous pouvez retourner à la liste des campagnes ou en créer une nouvelle.
+          </p>
+          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button variant="outline" onClick={() => router.push('/campaigns')}>
+            Liste des campagnes
+          </Button>
+          <Button onClick={() => router.push('/brief')}>
+            Créer une campagne
+          </Button>
+        </div>
       </div>
     );
   }
