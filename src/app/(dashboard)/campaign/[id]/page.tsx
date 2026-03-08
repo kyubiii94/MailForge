@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TEMPLATE_TYPES } from '@/lib/constants';
+import { sanitizeHtmlForPreview } from '@/lib/utils';
 import type { Campaign, NewsletterTemplate } from '@/types';
-import { ExternalLink, Eye, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react';
+import { ExternalLink, Eye, RefreshCw, AlertTriangle, Trash2, Link2 } from 'lucide-react';
 
 export default function CampaignPage() {
   const params = useParams();
@@ -323,32 +325,40 @@ export default function CampaignPage() {
             const isSelected = selectedTypes.includes(t.number);
             const generated = templates.find((tpl) => tpl.templateNumber === t.number);
             const genError = generationErrors.find((e) => e.templateNumber === t.number);
+            const templateUrl = `/campaign/${campaignId}/template/${t.number}`;
+            const cardClass = `p-4 rounded-xl border-2 text-left transition-all ${
+              generated
+                ? 'border-brand-500 bg-brand-50 cursor-pointer hover:bg-brand-100'
+                : isSelected
+                ? 'border-brand-400 bg-brand-50/50'
+                : 'border-surface-200 hover:border-surface-300'
+            } ${isGenerating && !generated ? 'opacity-60' : ''}`;
 
-            return (
-              <button
-                key={t.number}
-                type="button"
-                onClick={() => {
-                  if (generated) {
-                    router.push(`/campaign/${campaignId}/template/${t.number}`);
-                  } else if (!isGenerating) {
-                    toggleTemplate(t.number);
-                  }
-                }}
-                disabled={isGenerating && !generated}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  generated
-                    ? 'border-brand-500 bg-brand-50 cursor-pointer hover:bg-brand-100'
-                    : isSelected
-                    ? 'border-brand-400 bg-brand-50/50'
-                    : 'border-surface-200 hover:border-surface-300'
-                } ${isGenerating && !generated ? 'opacity-60' : ''}`}
-              >
+            const copyTemplateUrl = (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (typeof window !== 'undefined') {
+                navigator.clipboard?.writeText(`${window.location.origin}${templateUrl}`);
+              }
+            };
+
+            const cardContent = (
+              <>
                 <div className="flex items-center justify-between">
                   <span className="text-xl">{t.icon}</span>
                   <div className="flex items-center gap-2">
                     {generated && (
-                      <Badge variant="success">Généré</Badge>
+                      <>
+                        <button
+                          type="button"
+                          onClick={copyTemplateUrl}
+                          className="p-1.5 rounded border border-surface-200 bg-white hover:bg-surface-50 text-surface-500 hover:text-surface-700"
+                          title="Copier le lien direct"
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                        </button>
+                        <Badge variant="success">Généré</Badge>
+                      </>
                     )}
                     {genError && (
                       <Badge variant="danger">Erreur</Badge>
@@ -376,9 +386,29 @@ export default function CampaignPage() {
                 </div>
                 {generated && (
                   <p className="text-xs text-brand-600 mt-2 font-medium">
-                    Cliquer pour voir le template &rarr;
+                    Cliquer pour voir le template · Lien direct disponible
                   </p>
                 )}
+              </>
+            );
+
+            if (generated) {
+              return (
+                <Link key={t.number} href={templateUrl} className={cardClass}>
+                  {cardContent}
+                </Link>
+              );
+            }
+
+            return (
+              <button
+                key={t.number}
+                type="button"
+                onClick={() => !isGenerating && toggleTemplate(t.number)}
+                disabled={isGenerating}
+                className={cardClass}
+              >
+                {cardContent}
               </button>
             );
           })}
@@ -455,7 +485,7 @@ export default function CampaignPage() {
                 {/* Preview iframe */}
                 <div className="relative bg-surface-50 border-b border-surface-200" style={{ height: 200 }}>
                   <iframe
-                    srcDoc={tpl.htmlCode}
+                    srcDoc={sanitizeHtmlForPreview(tpl.htmlCode)}
                     title={`Preview ${tpl.templateType}`}
                     className="w-full h-full border-0 pointer-events-none"
                     style={{ transform: 'scale(0.4)', transformOrigin: 'top left', width: '250%', height: '500px' }}
@@ -478,15 +508,25 @@ export default function CampaignPage() {
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/campaign/${campaignId}/template/${tpl.templateNumber}`}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50 hover:border-surface-300 transition-colors flex-1 min-w-0"
+                    >
+                      <Eye className="w-3.5 h-3.5 flex-shrink-0" />
+                      Voir le détail
+                    </Link>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
-                      onClick={() => router.push(`/campaign/${campaignId}/template/${tpl.templateNumber}`)}
+                      title="Copier le lien direct vers ce template"
+                      onClick={() => {
+                        const url = typeof window !== 'undefined' ? `${window.location.origin}/campaign/${campaignId}/template/${tpl.templateNumber}` : '';
+                        navigator.clipboard?.writeText(url).then(() => { /* copied */ });
+                      }}
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      Voir le détail
+                      <Link2 className="w-3.5 h-3.5" />
+                      Lien
                     </Button>
                     <Button
                       variant="secondary"

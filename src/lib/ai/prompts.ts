@@ -146,6 +146,7 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE. Struct
 - Section FOOTER : <td> avec lien "Se désabonner" + nom de la marque
 - CSS inline sur chaque élément. Le HTML doit faire au moins 1500 caractères.
 - Rédiger du VRAI copy : titres, accroches et CTA en français, en lien avec l'objectif "${dna.objectif}" et la marque "${dna.marque.name}". Pas de Lorem ipsum, pas de placeholder.
+- Images : les balises <img> doivent avoir un attribut src avec une URL complète (http:// ou https://) ou être remplacées par un bloc de couleur (bgcolor/background-color). Ne jamais mettre un code couleur (ex: #ffc73c ou ffc73c) dans src="...".
 - NE PAS inclure de champ "mjmlCode" dans la réponse.`;
 }
 
@@ -203,5 +204,6 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
 - Footer : "Se désabonner" + ${dna.marque.name}
 - Minimum 1500 caractères. Vrai copy en français lié à "${dna.objectif}" et "${dna.marque.name}". Pas de Lorem ipsum.
 - Cohérence avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer.
+- Images : <img src="..."> uniquement avec URL complète (http/https). Pas de code couleur (#hex ou hex seul) dans src.
 - NE PAS inclure de champ "mjmlCode" dans la réponse.`;
 }

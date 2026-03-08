@@ -55,3 +55,27 @@ export function safeJsonParse<T>(json: string, fallback: T): T {
     return fallback;
   }
 }
+
+/** 1x1 transparent GIF to avoid broken image requests for invalid img src */
+const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * Sanitize HTML for safe preview in iframe: remove scripts, fix invalid image URLs
+ * (e.g. hex codes or relative paths used as src that cause ERR_NAME_NOT_RESOLVED).
+ */
+export function sanitizeHtmlForPreview(html: string): string {
+  if (!html?.trim()) return html;
+  let out = html.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  out = out.replace(/<img\s+([^>]*?)>/gi, (_match, attrs) => {
+    const srcMatch = attrs.match(/src\s*=\s*["']([^"']*)["']/i);
+    const src = (srcMatch && srcMatch[1]) ? srcMatch[1].trim() : '';
+    const isValidUrl = /^(https?:|data:)/i.test(src);
+    if (src && !isValidUrl) {
+      const newAttrs = attrs.replace(/src\s*=\s*["'][^"']*["']/i, `src="${TRANSPARENT_PIXEL}"`);
+      return '<img ' + newAttrs + '>';
+    }
+    return _match;
+  });
+  return out;
+}

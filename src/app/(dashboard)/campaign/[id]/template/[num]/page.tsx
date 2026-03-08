@@ -6,13 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { NewsletterTemplate, Campaign } from '@/types';
+import { sanitizeHtmlForPreview } from '@/lib/utils';
+import { Link2, Check } from 'lucide-react';
 
 type Tab = 'preview' | 'html' | 'mjml' | 'specs';
 
-/** Force light color-scheme in preview so the email is not rendered all black in dark mode. */
+/** Sanitize (scripts, invalid img src) and force light color-scheme for iframe preview. */
 function getPreviewHtml(htmlCode: string): string {
   if (!htmlCode?.trim()) return '';
-  return htmlCode.replace(
+  const sanitized = sanitizeHtmlForPreview(htmlCode);
+  return sanitized.replace(
     /<head(\s[^>]*)?>/i,
     (match) => `${match}<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">`
   );
@@ -37,6 +40,16 @@ export default function TemplatePage() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  function copyTemplateUrl() {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/campaign/${campaignId}/template/${templateNum}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -168,7 +181,16 @@ export default function TemplatePage() {
           </h1>
           {campaign && <p className="text-surface-500 mt-1">{campaign.name}</p>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyTemplateUrl}
+            title="Copier l’URL pour accéder directement à ce template"
+          >
+            {linkCopied ? <Check className="w-4 h-4 text-green-600" /> : <Link2 className="w-4 h-4" />}
+            {linkCopied ? 'Lien copié' : 'Copier le lien'}
+          </Button>
           <Button variant="outline" onClick={handleRegenerate} isLoading={isRegenerating}>
             Régénérer
           </Button>
@@ -179,6 +201,15 @@ export default function TemplatePage() {
             Export MJML
           </Button>
         </div>
+      </div>
+
+      {/* URL d’accès direct */}
+      <div className="rounded-lg bg-surface-50 border border-surface-200 px-3 py-2 text-sm">
+        <span className="text-surface-500">Lien direct : </span>
+        <code className="text-surface-700 break-all">
+          /campaign/{campaignId}/template/{templateNum}
+        </code>
+        <span className="text-surface-400 text-xs ml-2">(partagez ou enregistrez ce lien pour y accéder plus tard)</span>
       </div>
 
       {/* Subject & Preview */}
