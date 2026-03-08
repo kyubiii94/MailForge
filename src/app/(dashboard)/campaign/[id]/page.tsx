@@ -59,23 +59,23 @@ export default function CampaignPage() {
     stopPolling();
     pollStartRef.current = Date.now();
 
-    pollRef.current = setInterval(async () => {
+    const doPoll = async () => {
       if (Date.now() - pollStartRef.current > POLL_TIMEOUT) {
         stopPolling();
         setIsGenerating(false);
         setError('La génération a pris trop de temps. Rechargez la page pour voir les templates déjà générés.');
         return;
       }
-
       const c = await fetchCampaign(true);
       if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
         stopPolling();
         setIsGenerating(false);
-        if (!generateRequestRef.current) {
-          await fetchCampaign(false);
-        }
       }
-    }, POLL_INTERVAL);
+    };
+
+    // Premier poll rapide pour afficher la progression tôt
+    setTimeout(doPoll, 2500);
+    pollRef.current = setInterval(doPoll, POLL_INTERVAL);
   }, [fetchCampaign, stopPolling]);
 
   useEffect(() => {
@@ -112,35 +112,53 @@ export default function CampaignPage() {
         body: JSON.stringify({ selectedTypes: typesToGenerate }),
       });
 
-      const data = await res.json();
+      let data: { results?: { templateNumber: number; status: string; error?: string }[]; templates?: NewsletterTemplate[]; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        // Réponse non-JSON (ex: 502/504 HTML) — le body est déjà consommé
+        if (res.status >= 500) {
+          setError('Le serveur a mis trop de temps à répondre. Les templates déjà générés apparaîtront ci-dessous dans quelques secondes.');
+        } else {
+          setError('Réponse serveur invalide. Rechargez la page ou attendez la mise à jour automatique.');
+        }
+        stopPolling();
+        setIsGenerating(false);
+        generateRequestRef.current = false;
+        setTimeout(() => fetchCampaign(false), 2000);
+        return;
+      }
+
       if (!res.ok) {
         setError(data.error || 'Erreur lors de la génération');
         stopPolling();
         setIsGenerating(false);
+        generateRequestRef.current = false;
         return;
       }
 
       setGenerationResults(data.results || []);
       setTemplates(data.templates || []);
-      await fetchCampaign(false);
-    } catch {
-      // Don't show error if polling is active — templates may still be saving in DB
-      if (!pollRef.current) {
-        setError('Erreur de connexion. Rechargez la page pour voir les templates déjà générés.');
-      }
-    } finally {
+      setCampaign((prev) => (prev ? { ...prev, status: 'generated' as const, selectedTemplateTypes: typesToGenerate } : null));
+      stopPolling();
+      setIsGenerating(false);
       generateRequestRef.current = false;
-      if (pollRef.current) {
-        // Let one final poll happen to get the latest state
+    } catch (err) {
+      generateRequestRef.current = false;
+      setError('Erreur de connexion. Un rafraîchissement automatique va récupérer les templates déjà générés.');
+      // Un premier poll rapide pour mettre à jour l'UI
+      const c = await fetchCampaign(true);
+      if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
+        stopPolling();
+        setIsGenerating(false);
+      } else {
         setTimeout(async () => {
-          const c = await fetchCampaign(true);
-          if (c && c.status !== 'generating') {
+          const c2 = await fetchCampaign(true);
+          if (c2 && (c2.status === 'generated' || c2.status === 'dna_ready')) {
             stopPolling();
             setIsGenerating(false);
           }
-        }, 3000);
-      } else {
-        setIsGenerating(false);
+        }, 4000);
       }
     }
   }
