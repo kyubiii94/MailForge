@@ -7,10 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TEMPLATE_TYPES } from '@/lib/constants';
 import type { Campaign, NewsletterTemplate } from '@/types';
-import { ExternalLink, Eye, RefreshCw } from 'lucide-react';
-
-const POLL_INTERVAL = 8000;
-const POLL_TIMEOUT = 5 * 60 * 1000;
+import { ExternalLink, Eye, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function CampaignPage() {
   const params = useParams();
@@ -21,14 +18,12 @@ export default function CampaignPage() {
   const [templates, setTemplates] = useState<NewsletterTemplate[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<number[]>([1, 2, 3, 4, 8]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationResults, setGenerationResults] = useState<{ templateNumber: number; status: string; error?: string }[]>([]);
+  const [currentGenerating, setCurrentGenerating] = useState<string | null>(null);
+  const [generationErrors, setGenerationErrors] = useState<{ templateNumber: number; error: string }[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollStartRef = useRef<number>(0);
-  const generateRequestRef = useRef<boolean>(false);
-  const hasSeenGeneratingRef = useRef<boolean>(false);
+  const abortRef = useRef(false);
 
   const fetchCampaign = useCallback(async (silent = false) => {
     try {
@@ -49,51 +44,15 @@ export default function CampaignPage() {
     }
   }, [campaignId]);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  const startPolling = useCallback(() => {
-    stopPolling();
-    pollStartRef.current = Date.now();
-    hasSeenGeneratingRef.current = false;
-
-    const doPoll = async () => {
-      if (Date.now() - pollStartRef.current > POLL_TIMEOUT) {
-        stopPolling();
-        setIsGenerating(false);
-        setError('La génération a pris trop de temps. Rechargez la page pour voir les templates déjà générés.');
-        return;
-      }
-      const c = await fetchCampaign(true);
-      if (c?.status === 'generating') hasSeenGeneratingRef.current = true;
-      const elapsed = Date.now() - pollStartRef.current;
-      const canStopOnFinal = hasSeenGeneratingRef.current || elapsed > 15000;
-      if (c && (c.status === 'generated' || c.status === 'dna_ready') && canStopOnFinal) {
-        stopPolling();
-        setIsGenerating(false);
-      }
-    };
-
-    // Premier poll rapide pour afficher la progression tôt
-    setTimeout(doPoll, 2500);
-    pollRef.current = setInterval(doPoll, POLL_INTERVAL);
-  }, [fetchCampaign, stopPolling]);
-
   useEffect(() => {
     fetchCampaign();
-    return () => stopPolling();
-  }, [fetchCampaign, stopPolling]);
+  }, [fetchCampaign]);
 
   useEffect(() => {
-    if (campaign?.status === 'generating' && !isGenerating && !pollRef.current) {
-      setIsGenerating(true);
-      startPolling();
+    if (campaign?.status === 'generating' && !isGenerating) {
+      fetchCampaign(true);
     }
-  }, [campaign?.status, isGenerating, startPolling]);
+  }, [campaign?.status, isGenerating, fetchCampaign]);
 
   function toggleTemplate(num: number) {
     setSelectedTypes((prev) =>
@@ -103,85 +62,108 @@ export default function CampaignPage() {
 
   async function handleGenerate() {
     setIsGenerating(true);
-    setGenerationResults([]);
+    setGenerationErrors([]);
     setError('');
-    generateRequestRef.current = true;
-    startPolling();
+    abortRef.current = false;
+
+    const typesToGenerate = selectedTypes.includes(8) ? selectedTypes : [...selectedTypes, 8];
+    const ordered = [8, ...typesToGenerate.filter((t) => t !== 8)];
 
     try {
-      const typesToGenerate = selectedTypes.includes(8) ? selectedTypes : [...selectedTypes, 8];
-
-      const controller = new AbortController();
-      const timeoutMs = 90 * 1000; // 90 s pour éviter d'attendre indéfiniment (ex. limite Vercel 60 s)
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      const res = await fetch(`/api/campaign/${campaignId}/generate`, {
-        method: 'POST',
+      await fetch(`/api/campaign/${campaignId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedTypes: typesToGenerate }),
-        signal: controller.signal,
+        body: JSON.stringify({ status: 'generating', selectedTemplateTypes: typesToGenerate }),
       });
-      clearTimeout(timeoutId);
+      setCampaign((prev) => prev ? { ...prev, status: 'generating', selectedTemplateTypes: typesToGenerate } : null);
 
-      let data: { results?: { templateNumber: number; status: string; error?: string }[]; templates?: NewsletterTemplate[]; error?: string };
+      await fetch(`/api/campaign/${campaignId}/generate-one`, {
+        method: 'DELETE',
+      }).catch(() => {});
+
+    } catch {
+      // continue anyway
+    }
+
+    let masterDesignSpecs = '';
+    let masterHeadHtml = '';
+    let successCount = 0;
+    let firstRequest = true;
+
+    for (const num of ordered) {
+      if (abortRef.current) break;
+
+      const typeInfo = TEMPLATE_TYPES.find((t) => t.number === num);
+      setCurrentGenerating(typeInfo ? `#${num} ${typeInfo.type}` : `#${num}`);
+
       try {
-        data = await res.json();
-      } catch {
-        // Réponse non-JSON (ex: 502/504 HTML) — le body est déjà consommé
-        if (res.status >= 500) {
-          setError('Le serveur a mis trop de temps à répondre. Les templates déjà générés apparaîtront ci-dessous dans quelques secondes.');
-        } else {
-          setError('Réponse serveur invalide. Rechargez la page ou attendez la mise à jour automatique.');
-        }
-        stopPolling();
-        setIsGenerating(false);
-        generateRequestRef.current = false;
-        setTimeout(() => fetchCampaign(false), 2000);
-        return;
-      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 55000);
 
-      if (!res.ok) {
-        const apiError = data.error || 'Erreur lors de la génération';
-        setError(apiError);
-        if (res.status === 503 && apiError.toLowerCase().includes('gemini')) {
-          setError(`${apiError} Ajoutez GEMINI_API_KEY dans Vercel → Settings → Environment Variables (Production).`);
-        }
-        stopPolling();
-        setIsGenerating(false);
-        generateRequestRef.current = false;
-        return;
-      }
+        const res = await fetch(`/api/campaign/${campaignId}/generate-one`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            templateNumber: num,
+            masterDesignSpecs,
+            masterHeadHtml,
+            skipSiteContent: !firstRequest,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        firstRequest = false;
 
-      setGenerationResults(data.results || []);
-      setTemplates(data.templates || []);
-      setCampaign((prev) => (prev ? { ...prev, status: 'generated' as const, selectedTemplateTypes: typesToGenerate } : null));
-      stopPolling();
-      setIsGenerating(false);
-      generateRequestRef.current = false;
-    } catch (err) {
-      generateRequestRef.current = false;
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const isTimeout = /timeout|504|timed out|aborted/i.test(errMsg) || (err instanceof Error && err.name === 'AbortError');
-      setError(
-        isTimeout
-          ? 'La génération a pris trop de temps (limite Vercel). Générez 1 à 2 templates à la fois, ou passez sur un plan Vercel avec timeout plus long.'
-          : 'Erreur de connexion. Vérifiez que GEMINI_API_KEY est définie sur Vercel (Settings → Environment Variables). Un rafraîchissement récupérera les templates déjà générés.'
-      );
-      // Un premier poll rapide pour mettre à jour l'UI
-      const c = await fetchCampaign(true);
-      if (c && (c.status === 'generated' || c.status === 'dna_ready')) {
-        stopPolling();
-        setIsGenerating(false);
-      } else {
-        setTimeout(async () => {
-          const c2 = await fetchCampaign(true);
-          if (c2 && (c2.status === 'generated' || c2.status === 'dna_ready')) {
-            stopPolling();
-            setIsGenerating(false);
+        const data = await res.json();
+
+        if (!res.ok) {
+          const errMsg = data.error || `Erreur template #${num}`;
+          if (res.status === 503 && errMsg.toLowerCase().includes('gemini')) {
+            setError('GEMINI_API_KEY non configurée sur Vercel. Ajoutez-la dans Settings → Environment Variables (Production).');
+            break;
           }
-        }, 4000);
+          setGenerationErrors((prev) => [...prev, { templateNumber: num, error: errMsg }]);
+          continue;
+        }
+
+        if (data.template) {
+          setTemplates((prev) => {
+            const without = prev.filter((t) => t.templateNumber !== num);
+            return [...without, data.template].sort((a, b) => a.templateNumber - b.templateNumber);
+          });
+          successCount++;
+        }
+
+        if (num === 8 && data.masterDesignSpecs) {
+          masterDesignSpecs = data.masterDesignSpecs;
+          masterHeadHtml = data.masterHeadHtml || '';
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const isTimeout = /abort|timeout/i.test(errMsg) || (err instanceof Error && err.name === 'AbortError');
+        setGenerationErrors((prev) => [...prev, {
+          templateNumber: num,
+          error: isTimeout
+            ? `Template #${num} : timeout (la requête a pris trop de temps)`
+            : `Template #${num} : ${errMsg}`,
+        }]);
       }
     }
+
+    try {
+      const finalStatus = successCount > 0 ? 'generated' : 'dna_ready';
+      await fetch(`/api/campaign/${campaignId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: finalStatus }),
+      });
+      setCampaign((prev) => prev ? { ...prev, status: finalStatus as Campaign['status'] } : null);
+    } catch {
+      // status update failed, not critical
+    }
+
+    setCurrentGenerating(null);
+    setIsGenerating(false);
   }
 
   function openHtmlInNewTab(templateNumber: number) {
@@ -211,7 +193,6 @@ export default function CampaignPage() {
   const totalToGenerate = selectedTypes.includes(8) ? selectedTypes.length : selectedTypes.length + 1;
   const generatedCount = templates.length;
   const progressPercent = totalToGenerate > 0 ? Math.round((generatedCount / totalToGenerate) * 100) : 0;
-  const lastGenerated = templates.length > 0 ? templates[templates.length - 1] : null;
 
   return (
     <div className="space-y-8">
@@ -282,21 +263,28 @@ export default function CampaignPage() {
               Sélectionnez les types de newsletters à créer. Le Master Template (#8) est toujours inclus.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={handleGenerate}
-            isLoading={isGenerating}
-            disabled={selectedTypes.length === 0 || isGenerating}
-          >
-            {isGenerating ? 'Génération en cours...' : `Générer ${selectedTypes.length} template${selectedTypes.length > 1 ? 's' : ''}`}
-          </Button>
+          <div className="flex gap-2">
+            {isGenerating && (
+              <Button variant="outline" size="lg" onClick={() => { abortRef.current = true; }}>
+                Arrêter
+              </Button>
+            )}
+            <Button
+              size="lg"
+              onClick={handleGenerate}
+              isLoading={isGenerating}
+              disabled={selectedTypes.length === 0 || isGenerating}
+            >
+              {isGenerating ? 'Génération en cours...' : `Générer ${selectedTypes.length} template${selectedTypes.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {TEMPLATE_TYPES.map((t) => {
             const isSelected = selectedTypes.includes(t.number);
             const generated = templates.find((tpl) => tpl.templateNumber === t.number);
-            const result = generationResults.find((r) => r.templateNumber === t.number);
+            const genError = generationErrors.find((e) => e.templateNumber === t.number);
 
             return (
               <button
@@ -324,13 +312,13 @@ export default function CampaignPage() {
                     {generated && (
                       <Badge variant="success">Généré</Badge>
                     )}
-                    {result?.status === 'error' && (
+                    {genError && (
                       <Badge variant="danger">Erreur</Badge>
                     )}
-                    {isGenerating && !generated && isSelected && (
+                    {isGenerating && !generated && !genError && isSelected && (
                       <div className="animate-spin h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full" />
                     )}
-                    {!generated && !isGenerating && (
+                    {!generated && !isGenerating && !genError && (
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                         isSelected ? 'border-brand-600 bg-brand-600' : 'border-surface-300'
                       }`}>
@@ -377,30 +365,34 @@ export default function CampaignPage() {
                   <span className="text-sm font-medium text-brand-600">{generatedCount} / {totalToGenerate}</span>
                 </div>
                 <p className="text-sm text-surface-500 mt-0.5">
-                  {lastGenerated
-                    ? `Dernier généré : #${lastGenerated.templateNumber} — ${lastGenerated.templateType}`
-                    : 'Chaque template est généré individuellement par l\'IA.'}
+                  {currentGenerating
+                    ? `Génération de ${currentGenerating}...`
+                    : 'Préparation...'}
                 </p>
               </div>
             </div>
             <div className="w-full bg-surface-100 rounded-full h-2.5 overflow-hidden">
               <div
                 className="bg-brand-600 h-full rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${Math.max(progressPercent, isGenerating ? 5 : 0)}%` }}
+                style={{ width: `${Math.max(progressPercent, 5)}%` }}
               />
             </div>
           </div>
         </Card>
       )}
 
-      {/* Message si génération retournée mais 0 template (ex: clé API manquante sur Vercel) */}
-      {!isGenerating && generationResults.length > 0 && templates.length === 0 && (
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-          <p className="font-medium">Aucun template n&apos;a pu être généré.</p>
-          <p className="mt-1">
-            Sur Vercel, ajoutez <strong>GEMINI_API_KEY</strong> dans Settings → Environment Variables (Production), puis redéployez.
-            En local, vérifiez votre fichier .env. Sur l&apos;offre gratuite Vercel, le timeout peut couper la génération : essayez avec 1 à 2 templates seulement.
-          </p>
+      {/* Generation Errors */}
+      {generationErrors.length > 0 && !isGenerating && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <p className="font-medium">Certains templates n&apos;ont pas pu être générés :</p>
+          </div>
+          <ul className="list-disc list-inside space-y-1">
+            {generationErrors.map((e) => (
+              <li key={e.templateNumber}>{e.error}</li>
+            ))}
+          </ul>
         </div>
       )}
 
