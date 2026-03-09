@@ -183,9 +183,9 @@ export default function CampaignPage() {
     setIsGenerating(false);
   }
 
-  function openHtmlInNewTab(templateNumber: number) {
+  function openHtmlInNewTab(templateId: string) {
     const id = campaign?.id ?? campaignId;
-    window.open(`/api/campaign/${id}/template/${templateNumber}/export?format=html&inline=true`, '_blank');
+    window.open(`/api/campaign/${id}/template/${templateId}/export?format=html&inline=true`, '_blank');
   }
 
   if (loading) {
@@ -327,7 +327,7 @@ export default function CampaignPage() {
             const isSelected = selectedTypes.includes(t.number);
             const generated = templates.find((tpl) => tpl.templateNumber === t.number);
             const genError = generationErrors.find((e) => e.templateNumber === t.number);
-            const templateUrl = `/campaign/${canonicalId}/template/${t.number}`;
+            const templateUrl = generated ? `/campaign/${canonicalId}/template/${generated.id}` : '';
             const cardClass = `p-4 rounded-xl border-2 text-left transition-all ${
               generated
                 ? 'border-brand-500 bg-brand-50 cursor-pointer hover:bg-brand-100'
@@ -512,7 +512,7 @@ export default function CampaignPage() {
 
                   <div className="flex flex-wrap gap-2">
                     <Link
-                      href={`/campaign/${canonicalId}/template/${tpl.templateNumber}`}
+                      href={`/campaign/${canonicalId}/template/${tpl.id}`}
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50 hover:border-surface-300 transition-colors flex-1 min-w-0"
                     >
                       <Eye className="w-3.5 h-3.5 flex-shrink-0" />
@@ -523,7 +523,7 @@ export default function CampaignPage() {
                       size="sm"
                       title="Copier le lien direct vers ce template"
                       onClick={() => {
-                        const url = typeof window !== 'undefined' ? `${window.location.origin}/campaign/${canonicalId}/template/${tpl.templateNumber}` : '';
+                        const url = typeof window !== 'undefined' ? `${window.location.origin}/campaign/${canonicalId}/template/${tpl.id}` : '';
                         navigator.clipboard?.writeText(url).then(() => { /* copied */ });
                       }}
                     >
@@ -534,7 +534,7 @@ export default function CampaignPage() {
                       variant="secondary"
                       size="sm"
                       className="flex-1"
-                      onClick={() => openHtmlInNewTab(tpl.templateNumber)}
+                      onClick={() => openHtmlInNewTab(tpl.id)}
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Ouvrir HTML
