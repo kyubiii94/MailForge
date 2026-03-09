@@ -105,5 +105,6 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
         </div>
       </div>
     </aside>
+    </>
   );
 }
