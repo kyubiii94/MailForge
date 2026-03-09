@@ -84,12 +84,15 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
   for (const model of MODELS) {
     try {
       console.log(`[Gemini] Trying model: ${model} (JSON mode, ${maxTokens} max tokens)`);
+      // Disable thinking on 2.5 models to avoid timeouts on Vercel free tier (60s limit)
+      const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
       const response = await client.models.generateContent({
         model,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: maxTokens,
+          ...(thinkingConfig ? { thinkingConfig } : {}),
         },
       }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
@@ -122,10 +125,14 @@ async function generateText(prompt: string, maxTokens = 8192): Promise<string> {
   for (const model of MODELS) {
     try {
       console.log(`[Gemini] Trying model: ${model} (text mode)`);
+      const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
       const response = await client.models.generateContent({
         model,
         contents: prompt,
-        config: { maxOutputTokens: maxTokens },
+        config: {
+          maxOutputTokens: maxTokens,
+          ...(thinkingConfig ? { thinkingConfig } : {}),
+        },
       }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
       let text = response.text;
