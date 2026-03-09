@@ -46,6 +46,8 @@ function repairJson(raw: string): string {
   let s = raw.trim();
   const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
   if (quoteCount % 2 !== 0) s += '"';
+  // Remplacer les valeurs manquantes : "key":} ou "key":] ou "key":, par "key":""
+  s = s.replace(/:\s*([}\],])/g, ':""$1');
   let braces = 0;
   let brackets = 0;
   let inString = false;
@@ -64,7 +66,7 @@ function repairJson(raw: string): string {
   return s;
 }
 
-function safeJsonParse<T>(raw: string): T {
+export function safeJsonParse<T>(raw: string): T {
   const jsonStr = extractJson(raw);
   try {
     return JSON.parse(jsonStr) as T;
@@ -82,12 +84,15 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
   for (const model of MODELS) {
     try {
       console.log(`[Gemini] Trying model: ${model} (JSON mode, ${maxTokens} max tokens)`);
+      // Disable thinking on 2.5 models to avoid timeouts on Vercel free tier (60s limit)
+      const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
       const response = await client.models.generateContent({
         model,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
           maxOutputTokens: maxTokens,
+          ...(thinkingConfig ? { thinkingConfig } : {}),
         },
       }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
@@ -120,10 +125,14 @@ async function generateText(prompt: string, maxTokens = 8192): Promise<string> {
   for (const model of MODELS) {
     try {
       console.log(`[Gemini] Trying model: ${model} (text mode)`);
+      const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
       const response = await client.models.generateContent({
         model,
         contents: prompt,
-        config: { maxOutputTokens: maxTokens },
+        config: {
+          maxOutputTokens: maxTokens,
+          ...(thinkingConfig ? { thinkingConfig } : {}),
+        },
       }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
       let text = response.text;
@@ -212,7 +221,7 @@ interface RawTemplateResponse {
 
 export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: SiteContent | null): Promise<RawTemplateResponse> {
   const prompt = buildMasterTemplatePrompt(dna, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }
 
 // ─── Individual Template (1-7) Generation ─────────────────────────────────────
@@ -225,5 +234,5 @@ export async function generateTemplate(
   siteContent?: SiteContent | null
 ): Promise<RawTemplateResponse> {
   const prompt = buildTemplatePrompt(dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }
