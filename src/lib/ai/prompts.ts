@@ -1,5 +1,6 @@
 import type { CampaignBrief, CampaignDNA } from '@/types';
 import { TEMPLATE_TYPES, AMBIANCE_VOCABULARY } from '@/lib/constants';
+import { ACCESSIBILITY_NEWSLETTER_RULES } from '@/lib/ai/skills/accessibility-newsletter';
 
 function getAmbianceHint(ambiance: string): string {
   const key = Object.keys(AMBIANCE_VOCABULARY).find(
@@ -147,7 +148,9 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE. Struct
 - CSS inline sur chaque élément. Le HTML doit faire au moins 1500 caractères.
 - Rédiger du VRAI copy : titres, accroches et CTA en français, en lien avec l'objectif "${dna.objectif}" et la marque "${dna.marque.name}". Pas de Lorem ipsum, pas de placeholder.
 - Images : les balises <img> doivent avoir un attribut src avec une URL complète (http:// ou https://) ou être remplacées par un bloc de couleur (bgcolor/background-color). Ne jamais mettre un code couleur (ex: #ffc73c ou ffc73c) dans src="...".
-- NE PAS inclure de champ "mjmlCode" dans la réponse.`;
+- NE PAS inclure de champ "mjmlCode" dans la réponse.
+
+${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
 
 export function buildTemplatePrompt(
@@ -205,5 +208,7 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
 - Minimum 1500 caractères. Vrai copy en français lié à "${dna.objectif}" et "${dna.marque.name}". Pas de Lorem ipsum.
 - Cohérence avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer.
 - Images : <img src="..."> uniquement avec URL complète (http/https). Pas de code couleur (#hex ou hex seul) dans src.
-- NE PAS inclure de champ "mjmlCode" dans la réponse.`;
+- NE PAS inclure de champ "mjmlCode" dans la réponse.
+
+${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
