@@ -4,8 +4,9 @@ import { db } from '@/lib/db';
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string; templateId: string }> }) {
   const { id, templateId } = await params;
   const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const normalizedTemplateId = typeof templateId === 'string' ? templateId.trim().toLowerCase() : templateId;
 
-  const template = await db.getTemplate(templateId);
+  const template = await db.getTemplate(normalizedTemplateId);
   if (!template || template.campaignId !== campaignId) {
     return NextResponse.json({ error: 'Template introuvable' }, { status: 404 });
   }

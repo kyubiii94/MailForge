@@ -486,15 +486,25 @@ export default function CampaignPage() {
               <Card key={tpl.id} variant="bordered" padding="none" className="overflow-hidden">
                 {/* Preview iframe */}
                 <div className="relative bg-surface-50 border-b border-surface-200" style={{ height: 200 }}>
-                  <iframe
-                    srcDoc={sanitizeHtmlForPreview(tpl.htmlCode)}
-                    title={`Preview ${tpl.templateType}`}
-                    className="w-full h-full border-0 pointer-events-none"
-                    style={{ transform: 'scale(0.4)', transformOrigin: 'top left', width: '250%', height: '500px' }}
-                    sandbox="allow-same-origin"
-                    tabIndex={-1}
-                  />
-                  <div className="absolute top-2 right-2">
+                  {(!tpl.htmlCode || tpl.htmlCode.trim().length < 400) ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-surface-100">
+                      <p className="text-sm text-surface-500">Aperçu non disponible</p>
+                      <p className="text-xs text-surface-400 mt-1">Voir le détail pour régénérer le contenu</p>
+                    </div>
+                  ) : (
+                    <iframe
+                      srcDoc={sanitizeHtmlForPreview(tpl.htmlCode)}
+                      title={`Preview ${tpl.templateType}`}
+                      className="w-full h-full border-0 pointer-events-none"
+                      style={{ transform: 'scale(0.4)', transformOrigin: 'top left', width: '250%', height: '500px' }}
+                      sandbox="allow-same-origin"
+                      tabIndex={-1}
+                    />
+                  )}
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                    {(!tpl.htmlCode || tpl.htmlCode.trim().length < 400) && (
+                      <Badge variant="danger" className="text-xs">Contenu vide</Badge>
+                    )}
                     <Badge variant={tpl.templateNumber === 8 ? 'warning' : 'success'}>
                       #{tpl.templateNumber}
                     </Badge>

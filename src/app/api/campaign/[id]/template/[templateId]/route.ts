@@ -4,13 +4,14 @@ import { db } from '@/lib/db';
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string; templateId: string }> }) {
   const { id, templateId } = await params;
   const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const normalizedTemplateId = typeof templateId === 'string' ? templateId.trim().toLowerCase() : templateId;
 
   const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
 
-  const template = await db.getTemplate(templateId);
+  const template = await db.getTemplate(normalizedTemplateId);
   if (!template || template.campaignId !== campaignId) {
     const existing = await db.getTemplatesByCampaign(campaignId);
     const existingNumbers = existing.map((t) => t.templateNumber).sort((a, b) => a - b);
@@ -19,7 +20,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         error: `Template introuvable`,
         campaignId,
         campaign,
-        requestedId: templateId,
+        requestedId: normalizedTemplateId,
         existingTemplateNumbers: existingNumbers,
         existingTemplates: existing.map((t) => ({ id: t.id, templateNumber: t.templateNumber, templateType: t.templateType })),
       },

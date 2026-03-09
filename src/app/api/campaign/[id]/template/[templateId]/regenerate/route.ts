@@ -32,13 +32,14 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string; templateId: string }> }) {
   const { id, templateId } = await params;
   const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+  const normalizedTemplateId = typeof templateId === 'string' ? templateId.trim().toLowerCase() : templateId;
 
   const campaign = await db.getCampaign(campaignId);
   if (!campaign) {
     return NextResponse.json({ error: 'Campagne introuvable' }, { status: 404 });
   }
 
-  const existing = await db.getTemplate(templateId);
+  const existing = await db.getTemplate(normalizedTemplateId);
   if (!existing || existing.campaignId !== campaignId) {
     return NextResponse.json({ error: 'Template introuvable' }, { status: 404 });
   }

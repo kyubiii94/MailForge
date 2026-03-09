@@ -142,7 +142,8 @@ export const db = {
 
   async getTemplate(id: string): Promise<NewsletterTemplate | undefined> {
     const d = getDb();
-    const [row] = await d.select().from(schema.templates).where(eq(schema.templates.id, id)).limit(1);
+    const normalizedId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+    const [row] = await d.select().from(schema.templates).where(eq(schema.templates.id, normalizedId)).limit(1);
     return row ? rowToTemplate(row) : undefined;
   },
 

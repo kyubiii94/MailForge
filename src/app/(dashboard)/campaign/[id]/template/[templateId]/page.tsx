@@ -279,8 +279,13 @@ export default function TemplatePage() {
         <div>
           {!isHtmlComplete(template.htmlCode) && (
             <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-              <p className="font-medium">Contenu incomplet</p>
-              <p className="mt-1">La génération a produit un HTML trop court ou vide. Cliquez sur <strong>Régénérer</strong> pour obtenir une newsletter complète (hero, texte, CTA, footer).</p>
+              <p className="font-medium">Contenu incomplet ou vide</p>
+              <p className="mt-1">La génération n&apos;a pas produit de HTML utilisable (trop court ou vide). Cliquez sur <strong>Régénérer</strong> ci-dessous pour générer une newsletter complète (hero, texte, CTA, footer).</p>
+              <div className="mt-3">
+                <Button onClick={handleRegenerate} disabled={isRegenerating} className="bg-amber-600 hover:bg-amber-700 text-white">
+                  {isRegenerating ? 'Régénération…' : 'Régénérer ce template'}
+                </Button>
+              </div>
             </div>
           )}
           <div className="flex gap-2 mb-4">
@@ -307,7 +312,7 @@ export default function TemplatePage() {
               style={{ width: previewMode === 'desktop' ? 600 : 375 }}
             >
               <iframe
-                srcDoc={getPreviewHtml(template.htmlCode) || '<!DOCTYPE html><html><body style="margin:0;padding:20px;font-family:sans-serif;"><p style="color:#666;">Aucun contenu généré. Cliquez sur Régénérer.</p></body></html>'}
+                srcDoc={getPreviewHtml(template.htmlCode) || `<!DOCTYPE html><html><body style="margin:0;padding:24px;font-family:sans-serif;background:#f8f9fa;"><div style="max-width:400px;margin:0 auto;text-align:center;"><p style="color:#555;font-size:15px;">Aucun contenu HTML généré pour ce template.</p><p style="color:#888;font-size:13px;margin-top:8px;">Utilisez le bouton <strong>Régénérer</strong> au-dessus pour générer la newsletter.</p></div></body></html>`}
                 title={`Preview ${template.templateType}`}
                 className="w-full border-0"
                 style={{ height: 800, width: '100%' }}
