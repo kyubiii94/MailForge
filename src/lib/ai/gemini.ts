@@ -66,7 +66,7 @@ function repairJson(raw: string): string {
   return s;
 }
 
-function safeJsonParse<T>(raw: string): T {
+export function safeJsonParse<T>(raw: string): T {
   const jsonStr = extractJson(raw);
   try {
     return JSON.parse(jsonStr) as T;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { crawlMainPages } from '@/lib/scraping/crawler';
 import { extractColorPalette, extractTypography } from '@/lib/scraping/brand-extractor';
+import { safeJsonParse } from '@/lib/ai/gemini';
 import { GoogleGenAI } from '@google/genai';
 
 export const maxDuration = 120;
@@ -102,9 +103,7 @@ Sois précis et concret. Base-toi sur le contenu réel du site, pas sur des supp
     };
 
     try {
-      const jsonStr = rawResponse.replace(/```json\s*/g, '').replace(/```/g, '').trim();
-      const braceMatch = jsonStr.match(/\{[\s\S]*\}/);
-      analysis = JSON.parse(braceMatch ? braceMatch[0] : jsonStr);
+      analysis = safeJsonParse<typeof analysis>(rawResponse);
     } catch {
       console.error('[Analyze] Failed to parse Gemini response:', rawResponse.slice(0, 500));
       return NextResponse.json({ error: 'Réponse IA non valide. Réessayez.' }, { status: 500 });
