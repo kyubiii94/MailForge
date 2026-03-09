@@ -46,6 +46,8 @@ function repairJson(raw: string): string {
   let s = raw.trim();
   const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
   if (quoteCount % 2 !== 0) s += '"';
+  // Remplacer les valeurs manquantes : "key":} ou "key":] ou "key":, par "key":""
+  s = s.replace(/:\s*([}\],])/g, ':""$1');
   let braces = 0;
   let brackets = 0;
   let inString = false;
@@ -212,7 +214,7 @@ interface RawTemplateResponse {
 
 export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: SiteContent | null): Promise<RawTemplateResponse> {
   const prompt = buildMasterTemplatePrompt(dna, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }
 
 // ─── Individual Template (1-7) Generation ─────────────────────────────────────
@@ -225,5 +227,5 @@ export async function generateTemplate(
   siteContent?: SiteContent | null
 ): Promise<RawTemplateResponse> {
   const prompt = buildTemplatePrompt(dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 8192);
+  return generateJson<RawTemplateResponse>(prompt, 16384);
 }
