@@ -25,6 +25,7 @@ export default function CampaignPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   const abortRef = useRef(false);
 
@@ -44,6 +45,25 @@ export default function CampaignPage() {
       setError('Erreur de connexion lors de la suppression');
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  async function handleDeleteTemplate(tpl: NewsletterTemplate) {
+    if (!confirm(`Supprimer le template #${tpl.templateNumber} (${tpl.templateType}) ? Vous pourrez le régénérer ensuite.`)) return;
+    setDeletingTemplateId(tpl.id);
+    setError('');
+    try {
+      const res = await fetch(`/api/campaign/${campaignId}/template/${tpl.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Impossible de supprimer le template');
+        return;
+      }
+      await fetchCampaign(true);
+    } catch {
+      setError('Erreur de connexion lors de la suppression du template');
+    } finally {
+      setDeletingTemplateId(null);
     }
   }
 
@@ -548,6 +568,21 @@ export default function CampaignPage() {
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Ouvrir HTML
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title="Supprimer ce template pour pouvoir le régénérer"
+                      onClick={() => handleDeleteTemplate(tpl)}
+                      disabled={deletingTemplateId === tpl.id}
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                    >
+                      {deletingTemplateId === tpl.id ? (
+                        <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                      Supprimer
                     </Button>
                   </div>
                 </div>

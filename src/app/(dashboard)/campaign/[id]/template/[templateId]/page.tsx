@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { NewsletterTemplate, Campaign } from '@/types';
 import { sanitizeHtmlForPreview } from '@/lib/utils';
-import { Link2, Check } from 'lucide-react';
+import { Link2, Check, Trash2 } from 'lucide-react';
 
 type Tab = 'preview' | 'html' | 'mjml' | 'specs';
 
@@ -43,6 +43,7 @@ export default function TemplatePage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [existingTemplates, setExistingTemplates] = useState<{ id: string; templateNumber: number; templateType: string }[]>([]);
   const [notFoundCampaign, setNotFoundCampaign] = useState<Campaign | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   function copyTemplateUrl() {
     if (typeof window === 'undefined') return;
@@ -128,6 +129,27 @@ export default function TemplatePage() {
 
   function handleExport(format: 'html' | 'mjml') {
     window.open(`/api/campaign/${campaignId}/template/${templateId}/export?format=${format}`, '_blank');
+  }
+
+  async function handleDeleteTemplate() {
+    if (!template || !campaign) return;
+    if (!confirm(`Supprimer le template #${template.templateNumber} (${template.templateType}) ? Vous pourrez le régénérer depuis la fiche campagne.`)) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/campaign/${campaignId}/template/${templateId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Impossible de supprimer le template');
+        return;
+      }
+      const canonicalId = campaign.id ?? campaignId;
+      router.push(`/campaign/${canonicalId}`);
+    } catch {
+      setError('Erreur de connexion lors de la suppression');
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   if (loading) {
@@ -228,6 +250,20 @@ export default function TemplatePage() {
           </Button>
           <Button variant="secondary" onClick={() => handleExport('mjml')}>
             Export MJML
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDeleteTemplate}
+            disabled={isDeleting}
+            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+            title="Supprimer ce template pour pouvoir le régénérer"
+          >
+            {isDeleting ? (
+              <span className="animate-spin inline-block w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            Supprimer
           </Button>
         </div>
       </div>

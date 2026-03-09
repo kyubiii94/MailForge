@@ -184,6 +184,12 @@ export const db = {
     const d = getDb();
     await d.delete(schema.templates).where(eq(schema.templates.campaignId, campaignId));
   },
+
+  async deleteTemplate(id: string): Promise<void> {
+    const d = getDb();
+    const normalizedId = typeof id === 'string' ? id.trim().toLowerCase() : id;
+    await d.delete(schema.templates).where(eq(schema.templates.id, normalizedId));
+  },
 };
 
 // ─── Row mappers ──────────────────────────────────────────────────────────────
