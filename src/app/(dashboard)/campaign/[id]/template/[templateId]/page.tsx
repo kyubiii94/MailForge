@@ -206,7 +206,7 @@ export default function TemplatePage() {
             ← Retour à la campagne
           </button>
           <h1 className="text-2xl font-bold text-surface-900">
-            #{template.templateIdber} — {template.templateType}
+            #{template.templateNumber} — {template.templateType}
           </h1>
           {campaign && <p className="text-surface-500 mt-1">{campaign.name}</p>}
         </div>
