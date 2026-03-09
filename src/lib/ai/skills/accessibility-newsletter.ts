@@ -6,7 +6,7 @@
 export const ACCESSIBILITY_NEWSLETTER_RULES = `
 RÈGLES D'ACCESSIBILITÉ OBLIGATOIRES (WCAG AA / Charte État) — à respecter dans tout le HTML généré :
 
-1. CONTRASTES : Ratio texte/fond minimum 4.5:1 (texte standard) ou 3:1 (texte large ≥18pt). Vérifier en light ET dark mode. CTA : texte contrasté sur le fond du bouton. Éviter texte gris clair sur blanc, blanc sur jaune.
+1. CONTRASTES : Ratio texte/fond minimum 4.5:1 (texte standard) ou 3:1 (texte large ≥18pt). INTERDIT : texte blanc (#fff) ou clair sur fond blanc ou clair ; texte noir ou foncé sur fond noir ou foncé sans contraste. Chaque bloc doit avoir une combinaison lisible : fond clair → color texte foncé (#1a1a1a ou équivalent) ; fond foncé → color texte clair (#ffffff). Vérifier en light ET dark mode. CTA : texte contrasté sur le fond du bouton. Éviter texte gris clair sur blanc, blanc sur jaune.
 
 2. TYPO : Corps ≥14px (idéal 15–16px), footer ≥12px, titres ≥20px. Line-height ≥1.5× taille. Interdiction de text-align:justify. Font-stack avec fallbacks web-safe. Pas de paragraphes en italique ou tout en majuscules.
 

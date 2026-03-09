@@ -321,9 +321,10 @@ export default function CampaignPage() {
             className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
             onClick={handleDeleteCampaign}
             disabled={isDeleting || isGenerating}
+            title="Supprimer la campagne"
+            aria-label="Supprimer la campagne"
           >
             <Trash2 className="w-4 h-4" />
-            Supprimer la campagne
           </Button>
         </div>
       </div>

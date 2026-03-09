@@ -52,13 +52,15 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     let fontsStr = '';
     let textContent = '';
 
+    let imageUrls: string[] = [];
     if (pages.length > 0) {
       const colors = extractColorPalette(pages);
       const typography = extractTypography(pages);
       textContent = pages.map((p) => p.textContent).join('\n').slice(0, 8000);
       colorsStr = `primary: ${colors.primary}, secondary: ${colors.secondary}, accent: ${colors.accent}, bg: ${colors.background}, text: ${colors.text}`;
       fontsStr = `heading: ${typography.headingFont}, body: ${typography.bodyFont}, families: ${typography.families.join(', ')}`;
-      console.log(`[Analyze] Crawl OK: ${pages.length} pages`);
+      imageUrls = Array.from(new Set(pages.flatMap((p) => p.imageUrls || []))).slice(0, 30);
+      console.log(`[Analyze] Crawl OK: ${pages.length} pages, ${imageUrls.length} images`);
     }
 
     const title = pages[0]?.title || client.name;
@@ -116,6 +118,7 @@ Sois précis et concret. Base-toi sur le contenu réel du site, pas sur des supp
       keywords: analysis.keywords || [],
       audience: analysis.audience || '',
       ambiance: analysis.ambiance || '',
+      imageUrls,
       analyzedAt: new Date().toISOString(),
     };
 

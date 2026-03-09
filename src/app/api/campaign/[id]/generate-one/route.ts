@@ -24,7 +24,7 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
   if (analysis.fonts) textParts.push(`Polices du site : ${analysis.fonts}`);
 
   return {
-    imageUrls: [],
+    imageUrls: analysis.imageUrls ?? [],
     textContent: textParts.join('\n'),
   };
 }

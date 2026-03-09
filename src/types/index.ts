@@ -36,6 +36,7 @@ export interface Client {
     keywords: string[];
     audience: string;
     ambiance: string;
+    imageUrls?: string[];
     analyzedAt: string;
   };
   createdAt: string;

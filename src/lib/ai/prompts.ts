@@ -76,6 +76,18 @@ Règles :
 
 export type SiteContent = { imageUrls: string[]; textContent: string };
 
+/** Instructions pour utiliser des placeholders Placehold.co quand aucune URL d'image du site n'est fournie. */
+function getPlaceholderImageBlock(dna: CampaignDNA): string {
+  const hex = (dna.palette.primary || '1a1a1a').replace(/^#/, '');
+  const marque = encodeURIComponent(dna.marque.name || 'Marque');
+  return `
+
+IMAGES (aucune URL du site fournie) : Tu DOIS malgré tout inclure des images dans le HTML. Utilise des placeholders Placehold.co avec la couleur primaire et le nom de la marque :
+- Hero : https://placehold.co/600x400/${hex}/ffffff?text=${marque}
+- Visuels secondaires : https://placehold.co/400x300/${hex}/ffffff?text=Produit ou https://placehold.co/300x200/${hex}/ffffff?text=+
+Chaque <img> doit avoir un src avec cette URL complète, un alt descriptif et style="display:block;border:0;max-width:100%;". Ne laisse jamais une section hero ou visuelle sans image.`;
+}
+
 function getSiteContentBlock(siteContent: SiteContent | null | undefined): string {
   if (!siteContent || (siteContent.imageUrls.length === 0 && !siteContent.textContent?.trim())) return '';
   const lines: string[] = [
@@ -99,9 +111,10 @@ function getSiteContentBlock(siteContent: SiteContent | null | undefined): strin
 
 export function buildMasterTemplatePrompt(dna: CampaignDNA, siteContent?: SiteContent | null): string {
   const siteBlock = getSiteContentBlock(siteContent ?? null);
+  const imageFallback = !siteContent?.imageUrls?.length ? getPlaceholderImageBlock(dna) : '';
   return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
 Tu dois créer le CAMPAIGN MASTER TEMPLATE (#8) qui servira de système de design de référence pour toute la campagne newsletter.
-${siteBlock}
+${siteBlock}${imageFallback}
 
 ADN DE LA CAMPAGNE :
 - Marque : ${dna.marque.name} (${dna.marque.sector})
@@ -150,6 +163,12 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE. Struct
 - Images : les balises <img> doivent avoir un attribut src avec une URL complète (http:// ou https://) ou être remplacées par un bloc de couleur (bgcolor/background-color). Ne jamais mettre un code couleur (ex: #ffc73c ou ffc73c) dans src="...".
 - NE PAS inclure de champ "mjmlCode" dans la réponse.
 
+CONTRASTE ET LISIBILITÉ OBLIGATOIRES (aucune exception) :
+- Sur TOUTE section à fond clair (blanc #fff/#ffffff, jaune, pastel, ${dna.palette.background} si clair) : le texte DOIT être foncé (ex: color:#1a1a1a ou color:${dna.palette.text} si cette couleur est foncée). Jamais de texte blanc ou très clair sur fond clair.
+- Sur TOUTE section à fond foncé (hero sombre, ${dna.palette.primary} si foncé, noir) : le texte DOIT être clair (color:#ffffff ou color:#f5f5f5). Jamais de texte noir sur fond noir.
+- Chaque <td> ou bloc de contenu doit avoir soit background-color + color explicites et contrastés, soit hériter d'un contraste garanti. Vérifier mentalement : fond clair → texte foncé ; fond foncé → texte clair.
+- Les sections "corps" ou "texte" sur fond blanc doivent impérativement avoir style="color:#1a1a1a" ou "color:${dna.palette.text}" (si hex foncé). Ne jamais laisser du texte sans couleur sur fond blanc.
+
 ${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
 
@@ -163,10 +182,11 @@ export function buildTemplatePrompt(
   const templateInfo = TEMPLATE_TYPES.find((t) => t.number === templateNumber);
   if (!templateInfo) throw new Error(`Template type ${templateNumber} not found`);
   const siteBlock = getSiteContentBlock(siteContent ?? null);
+  const imageFallback = !siteContent?.imageUrls?.length ? getPlaceholderImageBlock(dna) : '';
 
   return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
 Tu dois créer l'email #${templateNumber} (${templateInfo.type}) pour une campagne newsletter.
-${siteBlock}
+${siteBlock}${imageFallback}
 
 TYPE D'EMAIL : ${templateInfo.type}
 OBJECTIF : ${templateInfo.objective}
@@ -209,6 +229,12 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
 - Cohérence avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer.
 - Images : <img src="..."> uniquement avec URL complète (http/https). Pas de code couleur (#hex ou hex seul) dans src.
 - NE PAS inclure de champ "mjmlCode" dans la réponse.
+
+CONTRASTE ET LISIBILITÉ OBLIGATOIRES (aucune exception) :
+- Sur TOUTE section à fond clair (blanc #fff/#ffffff, jaune, pastel, ${dna.palette.background} si clair) : le texte DOIT être foncé (ex: color:#1a1a1a ou color:${dna.palette.text} si cette couleur est foncée). Jamais de texte blanc ou très clair sur fond clair.
+- Sur TOUTE section à fond foncé (hero sombre, ${dna.palette.primary} si foncé, noir) : le texte DOIT être clair (color:#ffffff ou color:#f5f5f5). Jamais de texte noir sur fond noir.
+- Chaque <td> ou bloc de contenu doit avoir soit background-color + color explicites et contrastés. Vérifier : fond clair → texte foncé ; fond foncé → texte clair.
+- Les sections "corps" ou "texte" sur fond blanc doivent avoir style="color:#1a1a1a" ou "color:${dna.palette.text}" (si hex foncé). Ne jamais laisser du texte sans couleur sur fond blanc.
 
 ${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
