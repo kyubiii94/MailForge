@@ -31,7 +31,7 @@ export default function TemplatePage() {
   const params = useParams();
   const router = useRouter();
   const campaignId = params.id as string;
-  const templateNum = params.num as string;
+  const templateId = params.templateId as string;
 
   const [template, setTemplate] = useState<NewsletterTemplate | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -41,12 +41,12 @@ export default function TemplatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
-  const [existingTemplateNumbers, setExistingTemplateNumbers] = useState<number[]>([]);
+  const [existingTemplates, setExistingTemplates] = useState<{ id: string; templateNumber: number; templateType: string }[]>([]);
   const [notFoundCampaign, setNotFoundCampaign] = useState<Campaign | null>(null);
 
   function copyTemplateUrl() {
     if (typeof window === 'undefined') return;
-    const url = `${window.location.origin}/campaign/${canonicalId}/template/${templateNum}`;
+    const url = `${window.location.origin}/campaign/${canonicalId}/template/${templateId}`;
     navigator.clipboard?.writeText(url).then(() => {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -55,10 +55,10 @@ export default function TemplatePage() {
 
   const fetchTemplate = useCallback(async () => {
     try {
-      const res = await fetch(`/api/campaign/${campaignId}/template/${templateNum}`);
+      const res = await fetch(`/api/campaign/${campaignId}/template/${templateId}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setExistingTemplateNumbers(Array.isArray(data.existingTemplateNumbers) ? data.existingTemplateNumbers : []);
+        setExistingTemplates(Array.isArray(data.existingTemplates) ? data.existingTemplates : []);
         setNotFoundCampaign(data.campaign || null);
         setError(data.error || 'Template introuvable');
         return;
@@ -66,18 +66,18 @@ export default function TemplatePage() {
       setTemplate(data.template);
       setCampaign(data.campaign);
       setError('');
-      setExistingTemplateNumbers([]);
+      setExistingTemplates([]);
       setNotFoundCampaign(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg.includes('Failed to fetch')
         ? 'Impossible de charger le template. Vérifiez votre connexion et que la campagne existe.'
         : `Chargement impossible : ${msg}`);
-      setExistingTemplateNumbers([]);
+      setExistingTemplates([]);
     } finally {
       setLoading(false);
     }
-  }, [campaignId, templateNum]);
+  }, [campaignId, templateId]);
 
   useEffect(() => { fetchTemplate(); }, [fetchTemplate]);
 
@@ -88,7 +88,7 @@ export default function TemplatePage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 95000);
 
-      const res = await fetch(`/api/campaign/${campaignId}/template/${templateNum}/regenerate`, {
+      const res = await fetch(`/api/campaign/${campaignId}/template/${templateId}/regenerate`, {
         method: 'POST',
         signal: controller.signal,
       });
@@ -117,7 +117,7 @@ export default function TemplatePage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('abort') || (err instanceof Error && err.name === 'AbortError')) {
-        setError('La régénération a pris trop de temps. Sur Vercel (offre gratuite), la limite est d’environ 60 secondes. Réessayez.');
+        setError('La régénération a pris trop de temps. Sur Vercel (offre gratuite), la limite est d\'environ 60 secondes. Réessayez.');
       } else {
         setError('Erreur de connexion. Vérifiez votre réseau et que GEMINI_API_KEY est configurée (Vercel ou .env).');
       }
@@ -127,7 +127,7 @@ export default function TemplatePage() {
   }
 
   function handleExport(format: 'html' | 'mjml') {
-    window.open(`/api/campaign/${campaignId}/template/${templateNum}/export?format=${format}`, '_blank');
+    window.open(`/api/campaign/${campaignId}/template/${templateId}/export?format=${format}`, '_blank');
   }
 
   if (loading) {
@@ -145,19 +145,19 @@ export default function TemplatePage() {
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-6 text-left">
           <p className="font-medium text-amber-900">Template introuvable</p>
           <p className="text-sm text-amber-800 mt-1">
-            Le template #{templateNum} n’existe pas ou n’a pas encore été généré. Accédez à la fiche campagne pour consulter les templates disponibles et en générer de nouveaux.
+            Ce template n'existe pas ou n'a pas encore été généré. Accédez à la fiche campagne pour consulter les templates disponibles et en générer de nouveaux.
           </p>
-          {existingTemplateNumbers.length > 0 && (
+          {existingTemplates.length > 0 && (
             <p className="text-sm text-amber-800 mt-2 pt-2 border-t border-amber-200">
-              Templates déjà générés pour cette campagne :{' '}
-              {existingTemplateNumbers.map((n) => (
+              Templates déjà générés pour cette campagne&nbsp;:{' '}
+              {existingTemplates.map((t) => (
                 <button
-                  key={n}
+                  key={t.id}
                   type="button"
-                  onClick={() => router.push(`/campaign/${canonicalId}/template/${n}`)}
+                  onClick={() => router.push(`/campaign/${canonicalId}/template/${t.id}`)}
                   className="inline-flex items-center justify-center rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium px-2 py-0.5 text-sm mr-1"
                 >
-                  #{n}
+                  #{t.templateNumber}
                 </button>
               ))}
             </p>
@@ -215,7 +215,7 @@ export default function TemplatePage() {
             variant="outline"
             size="sm"
             onClick={copyTemplateUrl}
-            title="Copier l’URL pour accéder directement à ce template"
+            title="Copier l'URL pour accéder directement à ce template"
           >
             {linkCopied ? <Check className="w-4 h-4 text-green-600" /> : <Link2 className="w-4 h-4" />}
             {linkCopied ? 'Lien copié' : 'Copier le lien'}
@@ -232,11 +232,11 @@ export default function TemplatePage() {
         </div>
       </div>
 
-      {/* URL d’accès direct */}
+      {/* URL d'accès direct */}
       <div className="rounded-lg bg-surface-50 border border-surface-200 px-3 py-2 text-sm">
         <span className="text-surface-500">Lien direct : </span>
         <code className="text-surface-700 break-all">
-          /campaign/{canonicalId}/template/{templateNum}
+          /campaign/{canonicalId}/template/{templateId}
         </code>
         <span className="text-surface-400 text-xs ml-2">(partagez ou enregistrez ce lien pour y accéder plus tard)</span>
       </div>
