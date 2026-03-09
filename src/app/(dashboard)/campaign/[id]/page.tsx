@@ -8,8 +8,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TEMPLATE_TYPES } from '@/lib/constants';
 import { sanitizeHtmlForPreview } from '@/lib/utils';
-import type { Campaign, NewsletterTemplate } from '@/types';
-import { ExternalLink, Eye, RefreshCw, AlertTriangle, Trash2, Link2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ColorSwatch } from '@/components/ui/color-swatch';
+import type { Campaign, CampaignDNA, NewsletterTemplate } from '@/types';
+import { ExternalLink, Eye, RefreshCw, AlertTriangle, Trash2, Link2, Pencil, Save, X } from 'lucide-react';
 
 export default function CampaignPage() {
   const params = useParams();
@@ -26,6 +28,9 @@ export default function CampaignPage() {
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [isEditingDna, setIsEditingDna] = useState(false);
+  const [editedDna, setEditedDna] = useState<CampaignDNA | null>(null);
+  const [isSavingDna, setIsSavingDna] = useState(false);
 
   const abortRef = useRef(false);
 
@@ -46,6 +51,59 @@ export default function CampaignPage() {
     } finally {
       setIsDeleting(false);
     }
+  }
+
+  function startEditingDna() {
+    if (!campaign) return;
+    setEditedDna(JSON.parse(JSON.stringify(campaign.dna)));
+    setIsEditingDna(true);
+  }
+
+  function cancelEditingDna() {
+    setIsEditingDna(false);
+    setEditedDna(null);
+  }
+
+  async function saveDna() {
+    if (!editedDna || !campaign) return;
+    setIsSavingDna(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/campaign/${campaignId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dna: editedDna }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Impossible de sauvegarder l\'ADN');
+        return;
+      }
+      const data = await res.json();
+      setCampaign(data.campaign);
+      setIsEditingDna(false);
+      setEditedDna(null);
+    } catch {
+      setError('Erreur de connexion lors de la sauvegarde de l\'ADN');
+    } finally {
+      setIsSavingDna(false);
+    }
+  }
+
+  function updateDnaField<K extends keyof CampaignDNA>(field: K, value: CampaignDNA[K]) {
+    setEditedDna((prev) => prev ? { ...prev, [field]: value } : prev);
+  }
+
+  function updateDnaMarque(field: keyof CampaignDNA['marque'], value: string) {
+    setEditedDna((prev) => prev ? { ...prev, marque: { ...prev.marque, [field]: value } } : prev);
+  }
+
+  function updateDnaDesignSystem(field: keyof CampaignDNA['designSystem'], value: string) {
+    setEditedDna((prev) => prev ? { ...prev, designSystem: { ...prev.designSystem, [field]: value } } : prev);
+  }
+
+  function updateDnaPalette(field: keyof CampaignDNA['palette'], value: string) {
+    setEditedDna((prev) => prev ? { ...prev, palette: { ...prev.palette, [field]: value } } : prev);
   }
 
   async function handleDeleteTemplate(tpl: NewsletterTemplate) {
@@ -272,48 +330,182 @@ export default function CampaignPage() {
 
       {/* DNA Summary */}
       <Card variant="elevated" padding="lg">
-        <h2 className="text-lg font-semibold text-surface-900 mb-4">ADN de campagne</h2>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Marque</h3>
-            <p className="mt-1 font-medium text-surface-900">{dna.marque.name}</p>
-            <p className="text-sm text-surface-600">{dna.marque.sector} &mdash; {dna.marque.positioning}</p>
-            <p className="text-sm text-surface-500 mt-1 italic">{dna.marque.toneOfVoice}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Objectif</h3>
-            <p className="mt-1 text-surface-800">{dna.objectif}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Audience</h3>
-            <p className="mt-1 text-surface-800">{dna.audience}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Palette</h3>
-            <div className="flex gap-2 mt-1">
-              {Object.entries(dna.palette).map(([name, color]) => (
-                <div key={name} className="text-center">
-                  <div
-                    className="w-10 h-10 rounded-lg border border-surface-200 shadow-sm"
-                    style={{ backgroundColor: color }}
-                    title={`${name}: ${color}`}
-                  />
-                  <span className="text-xs text-surface-400 mt-0.5 block">{name}</span>
-                </div>
-              ))}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-surface-900">ADN de campagne</h2>
+          {!isEditingDna ? (
+            <Button variant="outline" size="sm" onClick={startEditingDna} disabled={isGenerating}>
+              <Pencil className="w-3.5 h-3.5" />
+              Modifier
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={cancelEditingDna} disabled={isSavingDna}>
+                <X className="w-3.5 h-3.5" />
+                Annuler
+              </Button>
+              <Button size="sm" onClick={saveDna} disabled={isSavingDna} className="bg-green-600 hover:bg-green-700 text-white">
+                {isSavingDna ? (
+                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+                Enregistrer
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {!isEditingDna ? (
+          /* ── Mode lecture ── */
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Marque</h3>
+              <p className="mt-1 font-medium text-surface-900">{dna.marque.name}</p>
+              <p className="text-sm text-surface-600">{dna.marque.sector} &mdash; {dna.marque.positioning}</p>
+              <p className="text-sm text-surface-500 mt-1 italic">{dna.marque.toneOfVoice}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Objectif</h3>
+              <p className="mt-1 text-surface-800">{dna.objectif}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Audience</h3>
+              <p className="mt-1 text-surface-800">{dna.audience}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Palette</h3>
+              <div className="flex gap-2 mt-1">
+                {Object.entries(dna.palette).map(([name, color]) => (
+                  <div key={name} className="text-center">
+                    <div
+                      className="w-10 h-10 rounded-lg border border-surface-200 shadow-sm"
+                      style={{ backgroundColor: color }}
+                      title={`${name}: ${color}`}
+                    />
+                    <span className="text-xs text-surface-400 mt-0.5 block">{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Design System</h3>
+              <p className="mt-1 text-sm text-surface-600">Police : {dna.designSystem.primaryFont}</p>
+              <p className="text-sm text-surface-600">CTA : {dna.designSystem.ctaStyle}</p>
+              <p className="text-sm text-surface-600">Border-radius : {dna.designSystem.borderRadius}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Contraintes</h3>
+              <p className="mt-1 text-sm text-surface-600">{dna.contraintes}</p>
             </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Design System</h3>
-            <p className="mt-1 text-sm text-surface-600">Police : {dna.designSystem.primaryFont}</p>
-            <p className="text-sm text-surface-600">CTA : {dna.designSystem.ctaStyle}</p>
-            <p className="text-sm text-surface-600">Border-radius : {dna.designSystem.borderRadius}</p>
+        ) : editedDna && (
+          /* ── Mode edition ── */
+          <div className="space-y-6">
+            {/* Marque */}
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Marque</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Nom" value={editedDna.marque.name} onChange={(e) => updateDnaMarque('name', e.target.value)} />
+                <Input label="Secteur" value={editedDna.marque.sector} onChange={(e) => updateDnaMarque('sector', e.target.value)} />
+                <div className="col-span-2">
+                  <Input label="Positionnement" value={editedDna.marque.positioning} onChange={(e) => updateDnaMarque('positioning', e.target.value)} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-surface-700 mb-1.5">Ton de voix</label>
+                  <textarea
+                    value={editedDna.marque.toneOfVoice}
+                    onChange={(e) => updateDnaMarque('toneOfVoice', e.target.value)}
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-surface-300 text-sm bg-white text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 hover:border-surface-400 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Objectif + Audience */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Objectif</label>
+                <textarea
+                  value={editedDna.objectif}
+                  onChange={(e) => updateDnaField('objectif', e.target.value)}
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-surface-300 text-sm bg-white text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 hover:border-surface-400 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Audience</label>
+                <textarea
+                  value={editedDna.audience}
+                  onChange={(e) => updateDnaField('audience', e.target.value)}
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-surface-300 text-sm bg-white text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 hover:border-surface-400 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Palette */}
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Palette</h3>
+              <div className="flex flex-wrap gap-4">
+                {(Object.keys(editedDna.palette) as Array<keyof typeof editedDna.palette>).map((colorKey) => (
+                  <div key={colorKey} className="flex flex-col items-center gap-1.5">
+                    <ColorSwatch
+                      color={editedDna.palette[colorKey]}
+                      label={colorKey}
+                      size="lg"
+                      editable
+                      onChange={(c) => updateDnaPalette(colorKey, c)}
+                    />
+                    <input
+                      type="text"
+                      value={editedDna.palette[colorKey]}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v.match(/^#?[0-9a-fA-F]{0,6}$/)) {
+                          updateDnaPalette(colorKey, v.startsWith('#') ? v : `#${v}`);
+                        }
+                      }}
+                      className="w-20 px-2 py-1 text-xs font-mono text-center border border-surface-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      maxLength={7}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Design System */}
+            <div>
+              <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Design System</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Police principale" value={editedDna.designSystem.primaryFont} onChange={(e) => updateDnaDesignSystem('primaryFont', e.target.value)} />
+                <Input label="Police secondaire" value={editedDna.designSystem.secondaryFont} onChange={(e) => updateDnaDesignSystem('secondaryFont', e.target.value)} />
+                <Input label="Border-radius" value={editedDna.designSystem.borderRadius} onChange={(e) => updateDnaDesignSystem('borderRadius', e.target.value)} />
+                <Input label="Espacement" value={editedDna.designSystem.spacingSystem} onChange={(e) => updateDnaDesignSystem('spacingSystem', e.target.value)} />
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-surface-700 mb-1.5">Style CTA</label>
+                  <textarea
+                    value={editedDna.designSystem.ctaStyle}
+                    onChange={(e) => updateDnaDesignSystem('ctaStyle', e.target.value)}
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-surface-300 text-sm bg-white text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 hover:border-surface-400 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contraintes */}
+            <div>
+              <label className="block text-sm font-medium text-surface-500 uppercase tracking-wide mb-2">Contraintes</label>
+              <textarea
+                value={editedDna.contraintes}
+                onChange={(e) => updateDnaField('contraintes', e.target.value)}
+                rows={3}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-surface-300 text-sm bg-white text-surface-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 hover:border-surface-400 transition-colors"
+              />
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-surface-500 uppercase tracking-wide">Contraintes</h3>
-            <p className="mt-1 text-sm text-surface-600">{dna.contraintes}</p>
-          </div>
-        </div>
+        )}
       </Card>
 
       {/* Template Selection */}
