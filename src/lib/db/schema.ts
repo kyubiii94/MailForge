@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, jsonb, primaryKey } from 'drizzle-orm/pg-core';
 import type { CampaignBrief, CampaignDNA, LayoutDescription, DesignSpecs, Client } from '@/types';
 
 export const clients = pgTable('clients', {
@@ -46,3 +46,52 @@ export const templates = pgTable('templates', {
   coherenceTips: text('coherence_tips').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── Inspiration Library ─────────────────────────────────────────────────────
+
+export const newsletterInspirations = pgTable('newsletter_inspirations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
+  title: text('title').notNull(),
+  description: text('description'),
+  sourceUrl: text('source_url'),
+  sourceBrand: text('source_brand'),
+  fileType: text('file_type').notNull(), // 'image' | 'html'
+  filePath: text('file_path').notNull(),
+  thumbnailPath: text('thumbnail_path'),
+  htmlContent: text('html_content'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const inspirationTags = pgTable('inspiration_tags', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
+  name: text('name').notNull(),
+  color: text('color').notNull().default('#6366F1'),
+});
+
+export const inspirationTagLinks = pgTable('inspiration_tag_links', {
+  inspirationId: uuid('inspiration_id').notNull().references(() => newsletterInspirations.id, { onDelete: 'cascade' }),
+  tagId: uuid('tag_id').notNull().references(() => inspirationTags.id, { onDelete: 'cascade' }),
+}, (t) => [
+  primaryKey({ columns: [t.inspirationId, t.tagId] }),
+]);
+
+export const newsletterStyles = pgTable('newsletter_styles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
+  name: text('name').notNull(),
+  description: text('description'),
+  stylePrompt: text('style_prompt'),
+  coverInspirationId: uuid('cover_inspiration_id').references(() => newsletterInspirations.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const styleInspirationLinks = pgTable('style_inspiration_links', {
+  styleId: uuid('style_id').notNull().references(() => newsletterStyles.id, { onDelete: 'cascade' }),
+  inspirationId: uuid('inspiration_id').notNull().references(() => newsletterInspirations.id, { onDelete: 'cascade' }),
+}, (t) => [
+  primaryKey({ columns: [t.styleId, t.inspirationId] }),
+]);
