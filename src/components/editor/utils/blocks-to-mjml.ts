@@ -1,7 +1,10 @@
 /**
  * Serialize an array of Block objects back to MJML source.
+ * MJML mj-image n'accepte que des largeurs en px : on convertit les % en px (base 600px).
  */
 import type { Block } from '@/types/editor';
+
+const TEMPLATE_WIDTH_PX = 600;
 
 function escape(s?: string): string {
   return s ?? '';
@@ -10,6 +13,18 @@ function escape(s?: string): string {
 function attr(key: string, value?: string): string {
   if (!value) return '';
   return ` ${key}="${escape(value)}"`;
+}
+
+/** Convertit largeur % en px pour MJML (ex: "100%" → "600px"). */
+function imageWidthForMjml(value?: string): string {
+  if (!value) return `${TEMPLATE_WIDTH_PX}px`;
+  const trimmed = value.trim();
+  const pct = trimmed.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (pct) {
+    const px = Math.round((Number(pct[1]) / 100) * TEMPLATE_WIDTH_PX);
+    return `${Math.max(1, px)}px`;
+  }
+  return trimmed;
 }
 
 function wrapInSection(content: string, props: Block['properties']): string {
@@ -56,10 +71,10 @@ function blockToMjml(block: Block): string {
       attrs += attr('src', p.src);
       attrs += attr('alt', p.alt);
       if (p.href) attrs += attr('href', p.href);
-      attrs += attr('width', p.imageWidth || p.width);
+      attrs += attr('width', imageWidthForMjml(p.imageWidth || p.width));
       attrs += attr('padding', p.padding);
       attrs += attr('border-radius', p.borderRadius);
-      if (block.type === 'hero') attrs += ' fluid-on-mobile="true"';
+      attrs += ' fluid-on-mobile="true"';
       return wrapInSection(`        <mj-image${attrs} />\n`, p);
     }
 
@@ -170,7 +185,7 @@ function blockToMjml(block: Block): string {
     }
 
     case 'product-card': {
-      const imgMjml = p.src ? `        <mj-image${attr('src', p.src)}${attr('alt', p.alt)}${attr('width', p.imageWidth || '200px')} />\n` : '';
+      const imgMjml = p.src ? `        <mj-image${attr('src', p.src)}${attr('alt', p.alt)}${attr('width', imageWidthForMjml(p.imageWidth || '200px'))} />\n` : '';
       const titleMjml = p.content ? `        <mj-text${attr('font-weight', '600')}${attr('align', p.textAlign || 'center')}>${p.content}</mj-text>\n` : '';
       const btnMjml = p.href
         ? `        <mj-button${attr('href', p.href)}${attr('background-color', p.buttonColor)}${attr('color', p.buttonTextColor)}>${p.label || 'Voir'}</mj-button>\n`
@@ -216,7 +231,7 @@ function renderInnerBlock(block: Block): string {
       let attrs = '';
       attrs += attr('src', p.src);
       attrs += attr('alt', p.alt);
-      attrs += attr('width', p.imageWidth || p.width);
+      attrs += attr('width', imageWidthForMjml(p.imageWidth || p.width));
       attrs += attr('padding', p.padding);
       return `        <mj-image${attrs} />\n`;
     }
