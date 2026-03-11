@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { NewsletterTemplate, Campaign } from '@/types';
 import { sanitizeHtmlForPreview } from '@/lib/utils';
-import { Link2, Check, Trash2 } from 'lucide-react';
+import { Link2, Check, Trash2, Pencil } from 'lucide-react';
 
 type Tab = 'preview' | 'html' | 'mjml' | 'specs';
 
@@ -233,6 +233,12 @@ export default function TemplatePage() {
           {campaign && <p className="text-surface-500 mt-1">{campaign.name}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => router.push(`/campaign/${canonicalId}/template/${templateId}/edit`)}
+          >
+            <Pencil className="w-4 h-4" />
+            Modifier le template
+          </Button>
           <Button
             variant="outline"
             size="sm"
