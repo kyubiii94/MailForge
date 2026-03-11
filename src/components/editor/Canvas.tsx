@@ -123,7 +123,7 @@ export function Canvas() {
 
   return (
     <div
-      className="flex-1 overflow-auto bg-surface-100 p-4 md:p-8"
+      className="min-h-full bg-surface-100 p-4 md:p-8"
       onClick={handleCanvasClick}
     >
       <div

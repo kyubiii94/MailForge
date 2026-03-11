@@ -71,7 +71,7 @@ export function EmailEditor({ initialBlocks, palette, brandFonts, onSave, isSavi
   const isEditing = previewMode === 'edit';
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white shrink-0">
         <div className="flex items-center gap-1">
@@ -147,11 +147,11 @@ export function EmailEditor({ initialBlocks, palette, brandFonts, onSave, isSavi
         </div>
       </div>
 
-      {/* Main 3-column layout */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Main 3-column layout: colonne centrale scrollable pour voir tout le template */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {isEditing && <BlockPanel />}
         <div
-          className="flex-1 overflow-hidden"
+          className="flex-1 min-h-0 overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) selectBlock(null);
           }}

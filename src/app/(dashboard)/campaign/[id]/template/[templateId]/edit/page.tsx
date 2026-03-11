@@ -120,9 +120,9 @@ export default function EditorPage() {
     : undefined;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col min-h-0">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-surface-200 bg-white">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-surface-200 bg-white shrink-0">
         <button
           onClick={() => router.push(`/campaign/${campaign?.id || campaignId}/template/${templateId}`)}
           className="flex items-center gap-1 text-sm text-surface-500 hover:text-surface-700"
