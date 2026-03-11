@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
 import type { SiteContent } from '@/lib/ai/prompts';
+import { enforceContrast } from '@/lib/email/contrast-checker';
 
 export const maxDuration = 300;
 
@@ -62,6 +63,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       try {
         const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
+        // Enforce contrast on generated HTML
+        if (masterData.htmlCode) {
+          const { html: fixedHtml, corrections } = enforceContrast(masterData.htmlCode);
+          masterData.htmlCode = fixedHtml;
+          if (corrections.length > 0) {
+            console.log(`[Generate] Master template: fixed ${corrections.length} contrast issues`);
+            corrections.forEach((c) => console.log(`  - ${c.element}: ${c.original} → ${c.fixed} (ratio was ${c.ratio})`));
+          }
+        }
+
         masterDesignSpecs = JSON.stringify(masterData.designSpecs, null, 2);
         const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
         masterHeadHtml = headMatch ? headMatch[0] : '';
@@ -98,6 +109,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.log(`[Generate] Generating template #${num} (${typeInfo.type})...`);
       try {
         const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, null);
+
+        // Enforce contrast on generated HTML
+        if (data.htmlCode) {
+          const { html: fixedHtml, corrections } = enforceContrast(data.htmlCode);
+          data.htmlCode = fixedHtml;
+          if (corrections.length > 0) {
+            console.log(`[Generate] Template #${num}: fixed ${corrections.length} contrast issues`);
+          }
+        }
 
         const payload = {
           subjectLine: data.subjectLine || '',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { compileMjml } from '@/lib/email/mjml-compiler';
+import { enforceContrast } from '@/lib/email/contrast-checker';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string; templateId: string }> }) {
   const { id, templateId } = await params;
@@ -72,7 +73,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   // Compile MJML to HTML
-  const { html, errors } = await compileMjml(body.mjmlSource);
+  let { html, errors } = await compileMjml(body.mjmlSource);
+
+  // Enforce contrast on compiled HTML
+  const { html: fixedHtml, corrections } = enforceContrast(html);
+  html = fixedHtml;
+  if (corrections.length > 0) {
+    console.log(`[Save] Template ${normalizedTemplateId}: fixed ${corrections.length} contrast issues`);
+  }
 
   // Check size (Gmail limit: 102KB)
   const sizeKb = new TextEncoder().encode(html).length / 1024;

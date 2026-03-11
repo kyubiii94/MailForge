@@ -9,12 +9,18 @@ interface EditorState {
   historyIndex: number;
   isDirty: boolean;
   previewMode: EditorPreviewMode;
+  globalSettings: {
+    backgroundColor: string;
+    width: string;
+    fontFamily: string;
+  };
 
   // Actions
   setBlocks: (blocks: Block[]) => void;
   selectBlock: (id: string | null) => void;
   hoverBlock: (id: string | null) => void;
   updateBlockProperty: (blockId: string, key: string, value: unknown) => void;
+  updateGlobalSetting: (key: string, value: string) => void;
   addBlock: (block: Block, afterBlockId?: string) => void;
   removeBlock: (blockId: string) => void;
   moveBlock: (blockId: string, direction: 'up' | 'down') => void;
@@ -29,6 +35,8 @@ interface EditorState {
 function pushHistory(state: EditorState): Partial<EditorState> {
   const newHistory = state.history.slice(0, state.historyIndex + 1);
   newHistory.push(structuredClone(state.blocks));
+  // Limit history to 50 entries to prevent memory issues
+  if (newHistory.length > 50) newHistory.shift();
   return {
     history: newHistory,
     historyIndex: newHistory.length - 1,
@@ -80,6 +88,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   historyIndex: 0,
   isDirty: false,
   previewMode: 'edit',
+  globalSettings: {
+    backgroundColor: '#FFFFFF',
+    width: '600px',
+    fontFamily: 'Arial, sans-serif',
+  },
 
   setBlocks: (blocks) =>
     set({
@@ -97,6 +110,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({
       blocks: updateBlockInList(state.blocks, blockId, key, value),
       ...pushHistory(state),
+    })),
+
+  updateGlobalSetting: (key, value) =>
+    set((state) => ({
+      globalSettings: { ...state.globalSettings, [key]: value },
+      isDirty: true,
     })),
 
   addBlock: (block, afterBlockId) =>

@@ -109,10 +109,51 @@ function getSiteContentBlock(siteContent: SiteContent | null | undefined): strin
   return lines.join('\n');
 }
 
+const ART_DIRECTOR_PROFILE = `Tu es un directeur artistique email senior avec 15 ans d'expérience chez des agences comme RGA, Huge, Pentagram. Tu conçois des emails pour des marques comme Apple, Nike, Aesop.
+
+Principes de design que tu appliques TOUJOURS :
+1. HIÉRARCHIE VISUELLE — Un seul point focal par section. Le regard suit un chemin clair : hero → titre → texte → CTA.
+2. WHITESPACE GÉNÉREUX — L'espace vide n'est pas du gaspillage, c'est de la respiration. Minimum 40px de padding entre les sections sur desktop.
+3. TYPOGRAPHIE MAÎTRISÉE — Maximum 2 familles de polices. Les titres sont plus grands ET plus espacés que le body. Le body ne descend jamais sous 15px.
+4. PALETTE RESTREINTE — Maximum 3 couleurs actives + noir + blanc. La couleur accent ne s'utilise que sur 1-2 éléments max (CTA, détail).
+5. IMAGES COMME PONCTUATION — Les images respirent, elles ne sont pas collées au texte. Toujours un espace avant et après.
+6. CTA ÉVIDENT — Le bouton principal est le seul élément en couleur forte dans sa section. Il attire le regard sans effort.
+7. FOOTER DISCRET — Le footer est fonctionnel et sobre. Pas de couleur forte, pas de gros texte. Il sait se faire oublier.
+
+Ce que tu ne fais JAMAIS :
+- Texte clair sur fond clair (ratio < 4.5:1)
+- Plus de 3 CTA dans un email
+- Des sections trop chargées avec texte + image + bouton empilés sans espace
+- Du texte centré sur plus de 3 lignes (centrer uniquement les titres courts et les CTA)
+- Des bordures partout
+- Des fonds de couleur sur chaque section (varier entre fond blanc et 1-2 sections avec fond coloré max)`;
+
+const STRICT_CONTRAST_RULES = `
+RÈGLES DE CONTRASTE ABSOLUES — NE JAMAIS ENFREINDRE :
+- Texte sombre sur fond clair OU texte clair sur fond sombre. Jamais de texte clair sur fond clair.
+- Ratio de contraste minimum 4.5:1 entre le texte et son arrière-plan (norme WCAG AA).
+- Le texte body doit TOUJOURS être une couleur sombre (#000000 à #4A4A4A) sur un fond clair (#FFFFFF à #F5F5F0).
+- Le texte blanc (#FFFFFF) ne s'utilise QUE sur un fond suffisamment sombre (noir, bleu foncé, couleur brand foncée).
+- Les CTA doivent avoir un contraste fort : texte clair sur bouton foncé, ou texte foncé sur bouton vif.
+
+COMBINAISONS INTERDITES :
+- Texte blanc sur fond gris clair → INTERDIT
+- Texte gris clair sur fond blanc → INTERDIT
+- Texte de couleur accent sur fond de couleur similaire → INTERDIT
+
+COMBINAISONS SÛRES À PRIVILÉGIER :
+- #1A1A1A sur #FFFFFF (ratio 17.4:1)
+- #2D2D2D sur #F5F5F0 (ratio 10.2:1)
+- #FFFFFF sur #0A0A0A (ratio 19.9:1)
+- #FFFFFF sur #003399 (ratio 9.6:1)
+
+OBLIGATION : Chaque élément texte (<p>, <h1-h3>, <a>, <span>, <td> avec texte) DOIT avoir un attribut style avec "color:" explicite. Ne jamais laisser la couleur par défaut du navigateur.`;
+
 export function buildMasterTemplatePrompt(dna: CampaignDNA, siteContent?: SiteContent | null): string {
   const siteBlock = getSiteContentBlock(siteContent ?? null);
   const imageFallback = !siteContent?.imageUrls?.length ? getPlaceholderImageBlock(dna) : '';
-  return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
+  return `${ART_DIRECTOR_PROFILE}
+
 Tu dois créer le CAMPAIGN MASTER TEMPLATE (#8) qui servira de système de design de référence pour toute la campagne newsletter.
 ${siteBlock}${imageFallback}
 
@@ -163,11 +204,7 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE. Struct
 - Images : les balises <img> doivent avoir un attribut src avec une URL complète (http:// ou https://) ou être remplacées par un bloc de couleur (bgcolor/background-color). Ne jamais mettre un code couleur (ex: #ffc73c ou ffc73c) dans src="...".
 - NE PAS inclure de champ "mjmlCode" dans la réponse.
 
-CONTRASTE ET LISIBILITÉ OBLIGATOIRES (aucune exception) :
-- Sur TOUTE section à fond clair (blanc #fff/#ffffff, jaune, pastel, ${dna.palette.background} si clair) : le texte DOIT être foncé (ex: color:#1a1a1a ou color:${dna.palette.text} si cette couleur est foncée). Jamais de texte blanc ou très clair sur fond clair.
-- Sur TOUTE section à fond foncé (hero sombre, ${dna.palette.primary} si foncé, noir) : le texte DOIT être clair (color:#ffffff ou color:#f5f5f5). Jamais de texte noir sur fond noir.
-- Chaque <td> ou bloc de contenu doit avoir soit background-color + color explicites et contrastés, soit hériter d'un contraste garanti. Vérifier mentalement : fond clair → texte foncé ; fond foncé → texte clair.
-- Les sections "corps" ou "texte" sur fond blanc doivent impérativement avoir style="color:#1a1a1a" ou "color:${dna.palette.text}" (si hex foncé). Ne jamais laisser du texte sans couleur sur fond blanc.
+${STRICT_CONTRAST_RULES}
 
 ${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
@@ -184,7 +221,8 @@ export function buildTemplatePrompt(
   const siteBlock = getSiteContentBlock(siteContent ?? null);
   const imageFallback = !siteContent?.imageUrls?.length ? getPlaceholderImageBlock(dna) : '';
 
-  return `Tu es un expert en design d'emails HTML avec 15 ans d'expérience.
+  return `${ART_DIRECTOR_PROFILE}
+
 Tu dois créer l'email #${templateNumber} (${templateInfo.type}) pour une campagne newsletter.
 ${siteBlock}${imageFallback}
 
@@ -230,11 +268,7 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
 - Images : <img src="..."> uniquement avec URL complète (http/https). Pas de code couleur (#hex ou hex seul) dans src.
 - NE PAS inclure de champ "mjmlCode" dans la réponse.
 
-CONTRASTE ET LISIBILITÉ OBLIGATOIRES (aucune exception) :
-- Sur TOUTE section à fond clair (blanc #fff/#ffffff, jaune, pastel, ${dna.palette.background} si clair) : le texte DOIT être foncé (ex: color:#1a1a1a ou color:${dna.palette.text} si cette couleur est foncée). Jamais de texte blanc ou très clair sur fond clair.
-- Sur TOUTE section à fond foncé (hero sombre, ${dna.palette.primary} si foncé, noir) : le texte DOIT être clair (color:#ffffff ou color:#f5f5f5). Jamais de texte noir sur fond noir.
-- Chaque <td> ou bloc de contenu doit avoir soit background-color + color explicites et contrastés. Vérifier : fond clair → texte foncé ; fond foncé → texte clair.
-- Les sections "corps" ou "texte" sur fond blanc doivent avoir style="color:#1a1a1a" ou "color:${dna.palette.text}" (si hex foncé). Ne jamais laisser du texte sans couleur sur fond blanc.
+${STRICT_CONTRAST_RULES}
 
 ${ACCESSIBILITY_NEWSLETTER_RULES}`;
 }
