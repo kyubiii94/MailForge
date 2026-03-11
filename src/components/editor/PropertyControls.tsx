@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 
 // ─── Color Picker ──────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ export function ColorPicker({ label, value, onChange, palette }: ColorPickerProp
             <button
               key={c}
               className={`w-6 h-6 rounded border-2 transition-all ${
-                value === c ? 'border-brand-600 scale-110' : 'border-surface-200 hover:border-surface-400'
+                value === c ? 'border-brand-600 scale-110 shadow-sm' : 'border-surface-200 hover:border-surface-400'
               }`}
               style={{ backgroundColor: c }}
               onClick={() => onChange(c)}
@@ -77,18 +78,19 @@ export function FontSelect({ label, value, onChange, brandFonts }: FontSelectPro
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-2 py-1.5 text-xs border border-surface-300 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+        style={{ fontFamily: value || 'inherit' }}
       >
         <option value="">Par défaut</option>
         {brandFonts && brandFonts.length > 0 && (
           <optgroup label="Polices de la marque">
             {brandFonts.map((f) => (
-              <option key={f} value={f}>&#9733; {f}</option>
+              <option key={f} value={f} style={{ fontFamily: f }}>&#9733; {f.split(',')[0]}</option>
             ))}
           </optgroup>
         )}
         <optgroup label="Web-safe">
           {WEB_SAFE_FONTS.map((f) => (
-            <option key={f} value={f}>{f.split(',')[0]}</option>
+            <option key={f} value={f} style={{ fontFamily: f }}>{f.split(',')[0]}</option>
           ))}
         </optgroup>
       </select>
@@ -119,7 +121,7 @@ export function SizeInput({ label, value, onChange, min = 0, max = 200, unit = '
           max={max}
           value={numVal}
           onChange={(e) => onChange(`${e.target.value}${unit}`)}
-          className="flex-1 h-1 accent-brand-600"
+          className="flex-1 h-1.5 accent-brand-600 cursor-pointer"
         />
         <input
           type="text"
@@ -151,7 +153,7 @@ export function TextInput({ label, value, onChange, placeholder, multiline }: Te
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          rows={3}
+          rows={4}
           className="w-full px-2 py-1.5 text-xs border border-surface-300 rounded bg-white resize-y focus:ring-1 focus:ring-brand-500 outline-none"
         />
       ) : (
@@ -226,28 +228,54 @@ export function PaddingInput({ label, value, onChange }: PaddingInputProps) {
   const values = [top, right, bottom, left];
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-surface-600">{label}</label>
         <button
           onClick={() => setLinked(!linked)}
-          className={`text-[10px] px-1.5 py-0.5 rounded ${linked ? 'bg-brand-100 text-brand-700' : 'bg-surface-100 text-surface-500'}`}
+          className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${linked ? 'bg-brand-100 text-brand-700' : 'bg-surface-100 text-surface-500 hover:bg-surface-200'}`}
         >
           {linked ? 'Lié' : 'Libre'}
         </button>
       </div>
-      <div className="grid grid-cols-4 gap-1">
-        {values.map((v, i) => (
-          <div key={i} className="text-center">
-            <span className="text-[9px] text-surface-400">{labels[i]}</span>
+      {/* Visual padding box */}
+      <div className="relative flex items-center justify-center py-3">
+        <div className="relative w-full border border-surface-200 rounded bg-surface-50 p-2">
+          {/* Top */}
+          <div className="flex justify-center mb-1">
             <input
               type="text"
-              value={v}
-              onChange={(e) => update(i, e.target.value)}
-              className="w-full px-1 py-0.5 text-[10px] border border-surface-300 rounded bg-white text-center focus:ring-1 focus:ring-brand-500 outline-none"
+              value={values[0]}
+              onChange={(e) => update(0, e.target.value)}
+              className="w-14 px-1 py-0.5 text-[10px] border border-surface-300 rounded bg-white text-center focus:ring-1 focus:ring-brand-500 outline-none"
             />
           </div>
-        ))}
+          {/* Middle row */}
+          <div className="flex items-center justify-between">
+            <input
+              type="text"
+              value={values[3]}
+              onChange={(e) => update(3, e.target.value)}
+              className="w-14 px-1 py-0.5 text-[10px] border border-surface-300 rounded bg-white text-center focus:ring-1 focus:ring-brand-500 outline-none"
+            />
+            <div className="w-12 h-6 bg-surface-200 rounded mx-2 shrink-0" />
+            <input
+              type="text"
+              value={values[1]}
+              onChange={(e) => update(1, e.target.value)}
+              className="w-14 px-1 py-0.5 text-[10px] border border-surface-300 rounded bg-white text-center focus:ring-1 focus:ring-brand-500 outline-none"
+            />
+          </div>
+          {/* Bottom */}
+          <div className="flex justify-center mt-1">
+            <input
+              type="text"
+              value={values[2]}
+              onChange={(e) => update(2, e.target.value)}
+              className="w-14 px-1 py-0.5 text-[10px] border border-surface-300 rounded bg-white text-center focus:ring-1 focus:ring-brand-500 outline-none"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -263,9 +291,9 @@ interface AlignmentProps {
 
 export function AlignmentButtons({ label, value, onChange }: AlignmentProps) {
   const options = [
-    { val: 'left', icon: '◀' },
-    { val: 'center', icon: '◆' },
-    { val: 'right', icon: '▶' },
+    { val: 'left', Icon: AlignLeft },
+    { val: 'center', Icon: AlignCenter },
+    { val: 'right', Icon: AlignRight },
   ];
 
   return (
@@ -276,13 +304,13 @@ export function AlignmentButtons({ label, value, onChange }: AlignmentProps) {
           <button
             key={o.val}
             onClick={() => onChange(o.val)}
-            className={`flex-1 py-1 text-xs rounded border transition-colors ${
+            className={`flex-1 flex items-center justify-center py-1.5 rounded border transition-colors ${
               value === o.val
                 ? 'bg-brand-100 border-brand-300 text-brand-700'
-                : 'bg-white border-surface-200 text-surface-500 hover:bg-surface-50'
+                : 'bg-white border-surface-200 text-surface-400 hover:bg-surface-50 hover:text-surface-600'
             }`}
           >
-            {o.icon}
+            <o.Icon className="w-3.5 h-3.5" />
           </button>
         ))}
       </div>

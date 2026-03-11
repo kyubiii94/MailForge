@@ -30,12 +30,10 @@ export function EmailEditor({ initialBlocks, palette, brandFonts, onSave, isSavi
   const historyIndex = useEditorStore((s) => s.historyIndex);
   const historyLength = useEditorStore((s) => s.history.length);
 
-  // Initialize blocks
   useEffect(() => {
     setBlocks(initialBlocks);
   }, [initialBlocks, setBlocks]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -50,19 +48,32 @@ export function EmailEditor({ initialBlocks, palette, brandFonts, onSave, isSavi
         e.preventDefault();
         onSave(blocks);
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey) {
+        const target = e.target as HTMLElement;
+        const isEditing = target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+        if (!isEditing) {
+          const state = useEditorStore.getState();
+          if (state.selectedBlockId) {
+            const block = state.blocks.find((b) => b.id === state.selectedBlockId);
+            if (block && !block.locked) {
+              e.preventDefault();
+              state.removeBlock(state.selectedBlockId);
+            }
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [undo, redo, blocks, onSave]);
 
   const handleSave = useCallback(() => onSave(blocks), [blocks, onSave]);
-
   const isEditing = previewMode === 'edit';
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white shrink-0">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -136,10 +147,17 @@ export function EmailEditor({ initialBlocks, palette, brandFonts, onSave, isSavi
         </div>
       </div>
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden" onClick={() => selectBlock(null)}>
+      {/* Main 3-column layout */}
+      <div className="flex flex-1 overflow-hidden">
         {isEditing && <BlockPanel />}
-        <Canvas />
+        <div
+          className="flex-1 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) selectBlock(null);
+          }}
+        >
+          <Canvas />
+        </div>
         {isEditing && <PropertiesPanel palette={palette} brandFonts={brandFonts} />}
       </div>
     </div>

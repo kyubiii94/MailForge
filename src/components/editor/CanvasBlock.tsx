@@ -11,6 +11,24 @@ interface Props {
   children: React.ReactNode;
 }
 
+const BLOCK_TYPE_LABELS: Record<string, string> = {
+  header: 'Header',
+  hero: 'Hero',
+  heading: 'Titre',
+  text: 'Texte',
+  image: 'Image',
+  button: 'Bouton',
+  divider: 'Séparateur',
+  spacer: 'Espace',
+  columns: 'Colonnes',
+  column: 'Colonne',
+  'product-card': 'Produit',
+  social: 'Social',
+  footer: 'Footer',
+  quote: 'Citation',
+  code: 'HTML',
+};
+
 export function CanvasBlock({ block, children }: Props) {
   const selectedBlockId = useEditorStore((s) => s.selectedBlockId);
   const hoveredBlockId = useEditorStore((s) => s.hoveredBlockId);
@@ -21,7 +39,7 @@ export function CanvasBlock({ block, children }: Props) {
   const removeBlock = useEditorStore((s) => s.removeBlock);
 
   const isSelected = selectedBlockId === block.id;
-  const isHovered = hoveredBlockId === block.id;
+  const isHovered = hoveredBlockId === block.id && !isSelected;
 
   const {
     attributes,
@@ -38,33 +56,15 @@ export function CanvasBlock({ block, children }: Props) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const blockTypeLabels: Record<string, string> = {
-    header: 'Header',
-    hero: 'Hero',
-    heading: 'Titre',
-    text: 'Texte',
-    image: 'Image',
-    button: 'Bouton',
-    divider: 'Séparateur',
-    spacer: 'Espace',
-    columns: 'Colonnes',
-    column: 'Colonne',
-    'product-card': 'Produit',
-    social: 'Social',
-    footer: 'Footer',
-    quote: 'Citation',
-    code: 'HTML',
-  };
-
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group transition-all duration-150 ${
+      className={`relative group transition-all duration-100 ${
         isSelected
           ? 'ring-2 ring-brand-500 ring-inset z-10'
           : isHovered
-          ? 'ring-1 ring-brand-300 ring-inset'
+          ? 'ring-1 ring-dashed ring-brand-300 ring-inset'
           : ''
       }`}
       onClick={(e) => {
@@ -74,17 +74,26 @@ export function CanvasBlock({ block, children }: Props) {
       onMouseEnter={() => hoverBlock(block.id)}
       onMouseLeave={() => hoverBlock(null)}
     >
-      {/* Floating toolbar */}
-      {(isSelected || isHovered) && (
+      {/* Block type label — visible on hover */}
+      {isHovered && !isSelected && (
+        <div className="absolute -top-5 left-0 z-20">
+          <span className="text-[10px] font-medium bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded-t">
+            {BLOCK_TYPE_LABELS[block.type] || block.type}
+          </span>
+        </div>
+      )}
+
+      {/* Floating toolbar — visible when selected */}
+      {isSelected && (
         <div className="absolute -top-8 left-0 right-0 flex items-center justify-between z-20 pointer-events-none">
           <div className="flex items-center gap-1 pointer-events-auto">
             <span
-              className="flex items-center gap-1 text-[11px] font-medium bg-brand-600 text-white px-2 py-0.5 rounded-t cursor-grab"
+              className="flex items-center gap-1 text-[11px] font-medium bg-brand-600 text-white px-2 py-0.5 rounded-t cursor-grab active:cursor-grabbing"
               {...attributes}
               {...listeners}
             >
               <GripVertical className="w-3 h-3" />
-              {blockTypeLabels[block.type] || block.type}
+              {BLOCK_TYPE_LABELS[block.type] || block.type}
             </span>
           </div>
           <div className="flex items-center gap-0.5 pointer-events-auto">
@@ -127,7 +136,13 @@ export function CanvasBlock({ block, children }: Props) {
       )}
 
       {/* Block content */}
-      <div style={{ padding: block.properties.padding || undefined }}>
+      <div
+        style={{
+          padding: block.properties.padding || undefined,
+          backgroundColor: block.properties.backgroundColor || undefined,
+          borderRadius: block.properties.borderRadius || undefined,
+        }}
+      >
         {children}
       </div>
     </div>

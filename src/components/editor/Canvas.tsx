@@ -83,6 +83,8 @@ export function Canvas() {
   const previewMode = useEditorStore((s) => s.previewMode);
   const reorderBlocks = useEditorStore((s) => s.reorderBlocks);
   const updateBlockProperty = useEditorStore((s) => s.updateBlockProperty);
+  const selectBlock = useEditorStore((s) => s.selectBlock);
+  const globalSettings = useEditorStore((s) => s.globalSettings);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -106,20 +108,38 @@ export function Canvas() {
     [updateBlockProperty]
   );
 
+  const handleCanvasClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Deselect block when clicking on the canvas background (not on a block)
+      if (e.target === e.currentTarget) {
+        selectBlock(null);
+      }
+    },
+    [selectBlock]
+  );
+
   const isEditing = previewMode === 'edit';
   const canvasWidth = previewMode === 'mobile' ? 375 : 600;
 
   return (
-    <div className="flex-1 overflow-auto bg-surface-100 p-4 md:p-8">
+    <div
+      className="flex-1 overflow-auto bg-surface-100 p-4 md:p-8"
+      onClick={handleCanvasClick}
+    >
       <div
         className="mx-auto bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300"
-        style={{ width: canvasWidth, maxWidth: '100%' }}
+        style={{
+          width: canvasWidth,
+          maxWidth: '100%',
+          backgroundColor: globalSettings.backgroundColor,
+        }}
+        onClick={handleCanvasClick}
       >
         {blocks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-surface-400 text-sm">Aucun bloc</p>
             <p className="text-surface-300 text-xs mt-1">
-              Glissez des blocs depuis le panneau gauche
+              Cliquez sur un bloc dans le panneau gauche pour l&apos;ajouter
             </p>
           </div>
         ) : isEditing ? (
@@ -141,7 +161,13 @@ export function Canvas() {
           </DndContext>
         ) : (
           blocks.map((block) => (
-            <div key={block.id} style={{ padding: block.properties.padding }}>
+            <div
+              key={block.id}
+              style={{
+                padding: block.properties.padding,
+                backgroundColor: block.properties.backgroundColor,
+              }}
+            >
               {renderBlock(block)}
             </div>
           ))

@@ -8,7 +8,6 @@ interface Props {
 
 export function DividerBlock({ block }: Props) {
   const p = block.properties;
-  const borderParts = (p.border || '1px solid #E0E0E0').split(' ');
 
   return (
     <hr

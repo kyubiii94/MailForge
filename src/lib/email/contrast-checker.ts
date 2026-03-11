@@ -143,20 +143,24 @@ function extractStylePairs(html: string): StyleMatch[] {
  * Simple heuristic: look at preceding elements with bgcolor or background-color.
  */
 function findAncestorBgColor(html: string, position: number): string | null {
-  // Look backwards from position for the nearest background-color
   const preceding = html.substring(Math.max(0, position - 2000), position);
 
   // Check for bgcolor attribute (common in email HTML)
-  const bgcolorMatches = [...preceding.matchAll(/bgcolor\s*=\s*["']([^"']+)["']/gi)];
-  if (bgcolorMatches.length > 0) {
-    return bgcolorMatches[bgcolorMatches.length - 1][1];
+  let lastBgcolor: string | null = null;
+  const bgcolorRegex = /bgcolor\s*=\s*["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = bgcolorRegex.exec(preceding)) !== null) {
+    lastBgcolor = m[1];
   }
+  if (lastBgcolor) return lastBgcolor;
 
   // Check for background-color in style
-  const bgStyleMatches = [...preceding.matchAll(/background-color\s*:\s*([^;"]+)/gi)];
-  if (bgStyleMatches.length > 0) {
-    return bgStyleMatches[bgStyleMatches.length - 1][1].trim();
+  let lastBgStyle: string | null = null;
+  const bgStyleRegex = /background-color\s*:\s*([^;"]+)/gi;
+  while ((m = bgStyleRegex.exec(preceding)) !== null) {
+    lastBgStyle = m[1].trim();
   }
+  if (lastBgStyle) return lastBgStyle;
 
   return null;
 }

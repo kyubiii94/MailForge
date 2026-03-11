@@ -16,6 +16,7 @@ export function TextBlock({ block, onContentChange }: Props) {
     fontWeight: p.fontWeight as React.CSSProperties['fontWeight'],
     textAlign: p.textAlign,
     letterSpacing: p.letterSpacing,
+    textTransform: p.textTransform as React.CSSProperties['textTransform'],
     lineHeight: p.lineHeight || '1.6',
     margin: 0,
   };

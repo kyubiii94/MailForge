@@ -14,15 +14,16 @@ export function QuoteBlock({ block, onContentChange }: Props) {
     <blockquote
       style={{
         borderLeft: p.border || '3px solid #E0E0E0',
-        paddingLeft: '15px',
         margin: 0,
         backgroundColor: p.backgroundColor || '#f9f9f9',
         padding: p.padding || '20px 20px 20px 35px',
         color: p.textColor,
         fontFamily: p.fontFamily,
         fontSize: p.fontSize,
+        fontWeight: p.fontWeight as React.CSSProperties['fontWeight'],
         fontStyle: 'italic',
         lineHeight: p.lineHeight || '1.6',
+        textAlign: p.textAlign,
       }}
       contentEditable={!!onContentChange}
       suppressContentEditableWarning
