@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { NewsletterTemplate, Campaign } from '@/types';
 import type { Block } from '@/types/editor';
+import { useEditorStore } from '@/stores/editor-store';
 import { EmailEditor } from '@/components/editor/EmailEditor';
 import { mjmlToBlocks, htmlToBlocks } from '@/components/editor/utils/mjml-to-blocks';
 import { blocksToMjml } from '@/components/editor/utils/blocks-to-mjml';
@@ -81,6 +82,7 @@ export default function EditorPage() {
 
         const data = await res.json();
         setTemplate(data.template);
+        useEditorStore.getState().resetDirty();
         setSaveMessage('Sauvegardé !');
         setTimeout(() => setSaveMessage(''), 3000);
       } catch {
