@@ -10,12 +10,14 @@ import {
   Zap,
   Users,
   X,
+  BookImage,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/brief', label: 'Nouveau Brief', icon: PenLine },
   { href: '/campaigns', label: 'Campagnes', icon: FolderOpen },
+  { href: '/library', label: 'Inspiration', icon: BookImage },
 ];
 
 interface SidebarProps {
