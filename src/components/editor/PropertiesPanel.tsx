@@ -160,7 +160,33 @@ export function PropertiesPanel({ palette, brandFonts }: Props) {
         <Section title="Espacement" defaultOpen={false}>
           <PaddingInput label="Padding" value={selectedBlock.properties.padding || ''} onChange={(v) => update('padding', v)} />
           {(type === 'image' || type === 'hero') && (
-            <TextInput label="Largeur image" value={selectedBlock.properties.imageWidth || ''} onChange={(v) => update('imageWidth', v)} placeholder="100% / 300px" />
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-surface-600">Largeur image</label>
+              <p className="text-[10px] text-surface-400">En % par rapport à la largeur du template (ex. 100%, 50%) ou en px</p>
+              <div className="flex gap-1 flex-wrap">
+                {['100%', '75%', '50%', '33%'].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => update('imageWidth', preset)}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      (selectedBlock.properties.imageWidth || '100%') === preset
+                        ? 'bg-brand-100 border-brand-500 text-brand-800'
+                        : 'bg-white border-surface-200 text-surface-600 hover:border-surface-300'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={selectedBlock.properties.imageWidth || ''}
+                onChange={(e) => update('imageWidth', e.target.value)}
+                placeholder="100%"
+                className="w-full px-2 py-1.5 text-xs border border-surface-300 rounded bg-white focus:ring-1 focus:ring-brand-500 outline-none"
+              />
+            </div>
           )}
           {type === 'columns' && (
             <TextInput label="Gap colonnes" value={selectedBlock.properties.columnsGap || '10px'} onChange={(v) => update('columnsGap', v)} placeholder="10px" />

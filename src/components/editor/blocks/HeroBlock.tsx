@@ -24,7 +24,7 @@ export function HeroBlock({ block }: Props) {
       src={p.src}
       alt={p.alt || ''}
       style={{
-        width: '100%',
+        width: p.imageWidth || p.width || '100%',
         maxWidth: '100%',
         display: 'block',
         borderRadius: p.borderRadius,
