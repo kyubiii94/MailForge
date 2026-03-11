@@ -22,10 +22,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <span className="ml-3 text-sm font-medium text-surface-500">Menu</span>
       </header>
 
-      <div className="relative flex flex-1 min-w-0">
+      <div className="relative flex flex-1 min-w-0 min-h-0">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 min-w-0">
-          <div className="p-8 max-w-6xl mx-auto">
+        <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+          <div className="p-4 md:p-8 max-w-6xl mx-auto bg-surface-100 min-h-full">
             {children}
           </div>
         </main>
