@@ -18,8 +18,8 @@ export default function UploadPage() {
   useEffect(() => {
     fetch('/api/library/tags')
       .then(r => r.json())
-      .then(setTags)
-      .catch(() => {});
+      .then((data) => setTags(Array.isArray(data) ? data : []))
+      .catch(() => setTags([]));
   }, []);
 
   const handleSubmit = async (metadata: Array<{
@@ -37,7 +37,13 @@ export default function UploadPage() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const meta = metadata[i];
+      const meta = metadata[i] ?? {
+        title: file?.name?.replace(/\.[^.]+$/, '') ?? 'Sans titre',
+        description: '',
+        sourceUrl: '',
+        sourceBrand: '',
+        tagIds: [],
+      };
 
       const formData = new FormData();
       formData.append('file', file);
@@ -45,7 +51,7 @@ export default function UploadPage() {
       if (meta.description) formData.append('description', meta.description);
       if (meta.sourceUrl) formData.append('sourceUrl', meta.sourceUrl);
       if (meta.sourceBrand) formData.append('sourceBrand', meta.sourceBrand);
-      if (meta.tagIds.length > 0) formData.append('tagIds', JSON.stringify(meta.tagIds));
+      if (meta.tagIds?.length > 0) formData.append('tagIds', JSON.stringify(meta.tagIds));
 
       try {
         await fetch('/api/library/upload', {

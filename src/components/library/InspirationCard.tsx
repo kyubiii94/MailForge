@@ -13,6 +13,7 @@ interface InspirationCardProps {
 }
 
 export function InspirationCard({ inspiration, selected, onSelect, selectionMode }: InspirationCardProps) {
+  if (!inspiration?.id) return null;
   const isImage = inspiration.fileType === 'image';
 
   const cardContent = (
@@ -38,8 +39,8 @@ export function InspirationCard({ inspiration, selected, onSelect, selectionMode
       <div className="relative aspect-[4/5] bg-surface-100 overflow-hidden">
         {isImage ? (
           <img
-            src={inspiration.thumbnailPath || inspiration.filePath}
-            alt={inspiration.title}
+            src={inspiration.thumbnailPath || inspiration.filePath || ''}
+            alt={inspiration.title ?? ''}
             className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />

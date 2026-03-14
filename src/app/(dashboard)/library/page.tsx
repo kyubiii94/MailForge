@@ -28,20 +28,37 @@ export default function LibraryPage() {
 
     try {
       const res = await fetch(`/api/library/inspirations?${params}`);
-      if (res.ok) setInspirations(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setInspirations(Array.isArray(data) ? data : []);
+      }
     } finally {
       setLoading(false);
     }
   }, [filters]);
 
   const fetchTags = async () => {
-    const res = await fetch('/api/library/tags');
-    if (res.ok) setTags(await res.json());
+    try {
+      const res = await fetch('/api/library/tags');
+      if (res.ok) {
+        const data = await res.json();
+        setTags(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setTags([]);
+    }
   };
 
   const fetchStyles = async () => {
-    const res = await fetch('/api/library/styles');
-    if (res.ok) setStyles(await res.json());
+    try {
+      const res = await fetch('/api/library/styles');
+      if (res.ok) {
+        const data = await res.json();
+        setStyles(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setStyles([]);
+    }
   };
 
   useEffect(() => {

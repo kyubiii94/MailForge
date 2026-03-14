@@ -69,20 +69,20 @@ export function UploadZone({ files, onFilesChange }: UploadZoneProps) {
         <div className="space-y-2">
           <p className="text-sm font-medium text-surface-700">{files.length} fichier(s) sélectionné(s)</p>
           {files.map((file, i) => (
-            <div key={`${file.name}-${i}`} className="flex items-center gap-3 p-3 bg-surface-50 rounded-lg border border-surface-200">
-              {file.type.startsWith('image/') ? (
+            <div key={`${file?.name ?? i}-${i}`} className="flex items-center gap-3 p-3 bg-surface-50 rounded-lg border border-surface-200">
+              {file?.type?.startsWith('image/') ? (
                 <FileImage className="w-5 h-5 text-blue-500 shrink-0" />
               ) : (
                 <FileCode className="w-5 h-5 text-orange-500 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-surface-800 truncate">{file.name}</p>
-                <p className="text-xs text-surface-400">{(file.size / 1024).toFixed(0)} KB</p>
+                <p className="text-sm font-medium text-surface-800 truncate">{file?.name ?? 'Fichier'}</p>
+                <p className="text-xs text-surface-400">{file?.size != null ? `${(file.size / 1024).toFixed(0)} KB` : '—'}</p>
               </div>
-              {file.type.startsWith('image/') && (
+              {file?.type?.startsWith('image/') && (
                 <img
                   src={URL.createObjectURL(file)}
-                  alt={file.name}
+                  alt={file.name ?? ''}
                   className="w-10 h-10 rounded object-cover"
                 />
               )}
