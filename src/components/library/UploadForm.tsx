@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Plus, X } from 'lucide-react';
 import type { InspirationTag } from '@/types/library';
 import { TagBadge } from './TagBadge';
@@ -11,6 +11,16 @@ interface FileMetadata {
   sourceUrl: string;
   sourceBrand: string;
   tagIds: string[];
+}
+
+function defaultMetaForFile(f: File): FileMetadata {
+  return {
+    title: (f.name || 'Sans titre').replace(/\.[^.]+$/, ''),
+    description: '',
+    sourceUrl: '',
+    sourceBrand: '',
+    tagIds: [],
+  };
 }
 
 interface UploadFormProps {
@@ -24,14 +34,16 @@ interface UploadFormProps {
 
 export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progress }: UploadFormProps) {
   const [metadata, setMetadata] = useState<FileMetadata[]>(() =>
-    files.map(f => ({
-      title: f.name.replace(/\.[^.]+$/, ''),
-      description: '',
-      sourceUrl: '',
-      sourceBrand: '',
-      tagIds: [],
-    }))
+    files.map(defaultMetaForFile)
   );
+
+  // Garder metadata synchronisé avec files pour éviter metadata[i] undefined au rendu
+  useEffect(() => {
+    setMetadata(prev => {
+      if (files.length === 0) return [];
+      return files.map((f, i) => prev[i] ?? defaultMetaForFile(f));
+    });
+  }, [files]);
 
   const [bulkBrand, setBulkBrand] = useState('');
   const [newTagName, setNewTagName] = useState('');
@@ -105,10 +117,12 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
       )}
 
       {/* Per-file metadata */}
-      {files.map((file, i) => (
+      {files.map((file, i) => {
+        const meta = metadata[i] ?? defaultMetaForFile(file);
+        return (
         <div key={`${file.name}-${i}`} className="p-4 bg-white rounded-lg border border-surface-200 space-y-3">
           <div className="flex items-center gap-3 pb-3 border-b border-surface-100">
-            {file.type.startsWith('image/') && (
+            {file?.type?.startsWith('image/') && (
               <img src={URL.createObjectURL(file)} alt="" className="w-12 h-12 rounded-lg object-cover" />
             )}
             <div className="flex-1 min-w-0">
@@ -122,7 +136,7 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
               <label className="text-xs font-medium text-surface-600 mb-1 block">Titre *</label>
               <input
                 type="text"
-                value={metadata[i].title}
+                value={meta.title}
                 onChange={(e) => updateMeta(i, 'title', e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
@@ -131,7 +145,7 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
               <label className="text-xs font-medium text-surface-600 mb-1 block">Marque / Expéditeur</label>
               <input
                 type="text"
-                value={metadata[i].sourceBrand}
+                value={meta.sourceBrand}
                 onChange={(e) => updateMeta(i, 'sourceBrand', e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
@@ -141,7 +155,7 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
           <div>
             <label className="text-xs font-medium text-surface-600 mb-1 block">Description</label>
             <textarea
-              value={metadata[i].description}
+              value={meta.description}
               onChange={(e) => updateMeta(i, 'description', e.target.value)}
               rows={2}
               className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
@@ -152,7 +166,7 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
             <label className="text-xs font-medium text-surface-600 mb-1 block">URL source</label>
             <input
               type="url"
-              value={metadata[i].sourceUrl}
+              value={meta.sourceUrl}
               onChange={(e) => updateMeta(i, 'sourceUrl', e.target.value)}
               placeholder="https://..."
               className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -168,7 +182,7 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
                   key={tag.id}
                   tag={tag}
                   onClick={() => toggleTag(i, tag.id)}
-                  selected={metadata[i].tagIds.includes(tag.id)}
+                  selected={meta.tagIds.includes(tag.id)}
                 />
               ))}
               <div className="flex items-center gap-1">
@@ -189,7 +203,8 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       {/* Upload progress */}
       {uploading && (
@@ -219,8 +234,11 @@ export function UploadForm({ files, tags, onSubmit, onCancel, uploading, progres
         </button>
         <button
           type="button"
-          onClick={() => onSubmit(metadata)}
-          disabled={uploading || metadata.some(m => !m.title.trim())}
+          onClick={() => {
+            const payload = files.map((f, i) => metadata[i] ?? defaultMetaForFile(f));
+            onSubmit(payload);
+          }}
+          disabled={uploading || files.some((_, i) => !(metadata[i] ?? defaultMetaForFile(files[i])).title.trim())}
           className="px-5 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
