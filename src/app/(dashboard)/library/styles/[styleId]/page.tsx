@@ -21,9 +21,10 @@ export default function EditStylePage() {
       fetch('/api/library/styles').then(r => r.json()),
       fetch('/api/library/inspirations?limit=200').then(r => r.json()),
     ]).then(([styles, insps]) => {
-      const found = styles.find((s: NewsletterStyle) => s.id === params.styleId);
+      const stylesList = Array.isArray(styles) ? styles : [];
+      const found = stylesList.find((s: NewsletterStyle) => s.id === params.styleId);
       setStyle(found || null);
-      setInspirations(insps);
+      setInspirations(Array.isArray(insps) ? insps : []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [params.styleId]);

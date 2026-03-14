@@ -19,7 +19,8 @@ export default function InspirationDetailPage() {
   useEffect(() => {
     fetch(`/api/library/inspirations?search=&limit=100`)
       .then(r => r.json())
-      .then((all: NewsletterInspiration[]) => {
+      .then((data: unknown) => {
+        const all = Array.isArray(data) ? data : [];
         const found = all.find((i: NewsletterInspiration) => i.id === params.id);
         setInspiration(found || null);
         setLoading(false);

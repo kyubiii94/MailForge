@@ -15,8 +15,8 @@ export default function NewStylePage() {
   useEffect(() => {
     fetch('/api/library/inspirations?limit=200')
       .then(r => r.json())
-      .then(setInspirations)
-      .catch(() => {});
+      .then(data => setInspirations(Array.isArray(data) ? data : []))
+      .catch(() => setInspirations([]));
   }, []);
 
   const handleSave = async (data: {

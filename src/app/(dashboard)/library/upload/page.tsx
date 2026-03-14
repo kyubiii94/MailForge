@@ -22,6 +22,8 @@ export default function UploadPage() {
       .catch(() => setTags([]));
   }, []);
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleSubmit = async (metadata: Array<{
     title: string;
     description: string;
@@ -31,9 +33,11 @@ export default function UploadPage() {
   }>) => {
     setUploading(true);
     setProgress(0);
+    setUploadError(null);
 
     const total = files.length;
     let completed = 0;
+    const errors: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -54,12 +58,16 @@ export default function UploadPage() {
       if (meta.tagIds?.length > 0) formData.append('tagIds', JSON.stringify(meta.tagIds));
 
       try {
-        await fetch('/api/library/upload', {
+        const res = await fetch('/api/library/upload', {
           method: 'POST',
           body: formData,
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errors.push(`${file?.name ?? 'Fichier'}: ${data?.error ?? res.statusText ?? 'Échec'}`);
+        }
       } catch (err) {
-        console.error(`Upload failed for ${file.name}:`, err);
+        errors.push(`${file?.name ?? 'Fichier'}: ${err instanceof Error ? err.message : 'Erreur réseau'}`);
       }
 
       completed++;
@@ -67,6 +75,12 @@ export default function UploadPage() {
     }
 
     setUploading(false);
+    if (errors.length > 0) {
+      setUploadError(errors.length === total
+        ? `Aucun fichier n'a pu être enregistré. ${errors[0]}${errors.length > 1 ? ' (et autres)' : ''} — Vérifiez que les tables Bibliothèque existent en base (npm run db:push).`
+        : `${errors.length} fichier(s) en erreur: ${errors.join('; ')}`);
+      return;
+    }
     router.push('/library');
   };
 
@@ -85,6 +99,13 @@ export default function UploadPage() {
           <p className="text-sm text-surface-500 mt-0.5">Ajoutez des newsletters à votre bibliothèque d&apos;inspiration</p>
         </div>
       </div>
+
+      {uploadError && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+          <p className="font-medium">Erreur lors de l&apos;enregistrement</p>
+          <p className="mt-1">{uploadError}</p>
+        </div>
+      )}
 
       {/* Upload zone or form */}
       {files.length === 0 ? (

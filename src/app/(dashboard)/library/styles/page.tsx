@@ -13,8 +13,8 @@ export default function StylesPage() {
   useEffect(() => {
     fetch('/api/library/styles')
       .then(r => r.json())
-      .then(data => { setStyles(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(data => { setStyles(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => { setStyles([]); setLoading(false); });
   }, []);
 
   return (
