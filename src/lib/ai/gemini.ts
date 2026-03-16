@@ -70,10 +70,21 @@ export function safeJsonParse<T>(raw: string): T {
   const jsonStr = extractJson(raw);
   try {
     return JSON.parse(jsonStr) as T;
-  } catch {
+  } catch (firstErr) {
+    const trimmed = (raw || jsonStr || '').trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && trimmed.length > 0) {
+      const excerpt = trimmed.length > 350 ? trimmed.slice(0, 350) + '…' : trimmed;
+      throw new Error(`Réponse Gemini invalide (attendu du JSON) : ${excerpt}`);
+    }
     console.warn('[Gemini] JSON.parse failed, attempting repair...');
-    const repaired = repairJson(jsonStr);
-    return JSON.parse(repaired) as T;
+    try {
+      const repaired = repairJson(jsonStr);
+      return JSON.parse(repaired) as T;
+    } catch {
+      const msg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+      if (msg.includes('Réponse Gemini')) throw firstErr;
+      throw new Error(`Réponse Gemini : le modèle n'a pas renvoyé de JSON valide. ${msg.slice(0, 120)}`);
+    }
   }
 }
 
@@ -101,6 +112,14 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
         text = response.candidates[0].content.parts[0].text;
       }
       if (!text) throw new Error('Réponse vide de Gemini');
+
+      const trimmed = text.trim();
+      const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');
+      const looksLikeError = /^(an?\s+)?error|sorry|invalid|failed|blocked|not\s+allowed|safety/i.test(trimmed);
+      if (!looksLikeJson && (looksLikeError || trimmed.length < 100)) {
+        const message = trimmed.length > 400 ? trimmed.slice(0, 400) + '…' : trimmed;
+        throw new Error(`Réponse Gemini (pas du JSON) : ${message}`);
+      }
 
       console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 300)}`);
       const parsed = safeJsonParse<T>(text);
