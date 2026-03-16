@@ -194,7 +194,11 @@ campaignId,
 
     return NextResponse.json({ status: 'ok', template });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur de génération';
+    let message = err instanceof Error ? err.message : 'Erreur de génération';
+    if (/Unexpected token|is not valid JSON/i.test(message)) {
+      message =
+        "Le modèle Gemini a renvoyé un message d'erreur au lieu du JSON attendu (quota, contenu bloqué ou incident API). Réessayez ou vérifiez la console Google AI.";
+    }
     console.error(`[GenerateOne] Template #${templateNumber} failed:`, message);
     return NextResponse.json({ status: 'error', templateNumber, error: message }, { status: 500 });
   }

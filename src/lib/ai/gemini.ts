@@ -115,10 +115,15 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
 
       const trimmed = text.trim();
       const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');
-      const looksLikeError = /^(an?\s+)?error|sorry|invalid|failed|blocked|not\s+allowed|safety/i.test(trimmed);
-      if (!looksLikeJson && (looksLikeError || trimmed.length < 100)) {
-        const message = trimmed.length > 400 ? trimmed.slice(0, 400) + '…' : trimmed;
-        throw new Error(`Réponse Gemini (pas du JSON) : ${message}`);
+      const looksLikeError = /^(an?\s+)?error|sorry|invalid|failed|blocked|not\s+allowed|safety|cannot\s+generate/i.test(trimmed);
+      if (!looksLikeJson) {
+        if (looksLikeError || trimmed.length < 150) {
+          const message = trimmed.length > 400 ? trimmed.slice(0, 400) + '…' : trimmed;
+          throw new Error(`Réponse Gemini (pas du JSON) : ${message}`);
+        }
+        if (/^[a-z]/i.test(trimmed) && !trimmed.includes('"')) {
+          throw new Error(`Réponse Gemini (attendu du JSON) : ${trimmed.slice(0, 300)}${trimmed.length > 300 ? '…' : ''}`);
+        }
       }
 
       console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 300)}`);
