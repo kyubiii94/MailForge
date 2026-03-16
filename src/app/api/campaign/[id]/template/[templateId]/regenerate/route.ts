@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
-import type { SiteContent } from '@/lib/ai/prompts';
+import type { SiteContent, MasterContext } from '@/lib/ai/prompts';
 
 export const maxDuration = 60;
 
@@ -59,10 +59,20 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       data = await generateMasterTemplate(campaign.dna, siteContent);
     } else {
       const masterTemplate = await db.getTemplateByCampaignAndNumber(campaignId, 8);
-      const masterDesignSpecs = masterTemplate ? JSON.stringify(masterTemplate.designSpecs, null, 2) : '';
-      const headMatch = masterTemplate?.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
-      const masterHeadHtml = headMatch ? headMatch[0] : '';
-      data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
+      const masterHtml = masterTemplate?.htmlCode || '';
+      const headMatch = masterHtml.match(/<head[\s\S]*?<\/head>/i);
+      const footerMatch = masterHtml.match(/<!--\s*footer\s*-->([\s\S]*?)(?:<!--|<\/table>)/i)
+        || masterHtml.match(/<t[dr][^>]*>[\s\S]*?[Ss]e\s+d[ée]sabonner[\s\S]*?<\/t[dr]>/i);
+      const ctaMatch = masterHtml.match(/<a\s[^>]*display\s*:\s*inline-block[^>]*>[\s\S]*?<\/a>/i)
+        || masterHtml.match(/<a\s[^>]*background-color\s*:[^>]*padding[^>]*>[\s\S]*?<\/a>/i);
+      const masterContext: MasterContext = {
+        designSpecs: masterTemplate ? JSON.stringify(masterTemplate.designSpecs, null, 2) : '',
+        headHtml: headMatch ? headMatch[0] : '',
+        htmlCode: masterHtml.length > 4000 ? masterHtml.slice(0, 4000) + '\n<!-- ... tronqué -->' : masterHtml,
+        footerHtml: footerMatch ? footerMatch[0].trim() : '',
+        ctaHtml: ctaMatch ? ctaMatch[0].trim() : '',
+      };
+      data = await generateTemplate(campaign.dna, masterContext, templateNumber, siteContent);
     }
 
     const template = await db.updateTemplate(existing.id, {

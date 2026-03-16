@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
-import type { SiteContent } from '@/lib/ai/prompts';
+import type { SiteContent, MasterContext } from '@/lib/ai/prompts';
 import { enforceContrast } from '@/lib/email/contrast-checker';
 
 export const maxDuration = 300;
@@ -57,13 +57,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     let masterDesignSpecs = '';
     let masterHeadHtml = '';
+    let masterHtmlCode = '';
+    let masterFooterHtml = '';
+    let masterCtaHtml = '';
 
     if (needsMaster) {
       console.log(`[Generate] Generating master template (#8) for campaign ${campaignId}...`);
       try {
         const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
-        // Enforce contrast on generated HTML
         if (masterData.htmlCode) {
           const { html: fixedHtml, corrections } = enforceContrast(masterData.htmlCode);
           masterData.htmlCode = fixedHtml;
@@ -73,9 +75,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           }
         }
 
+        const fullHtml = masterData.htmlCode || '';
         masterDesignSpecs = JSON.stringify(masterData.designSpecs, null, 2);
-        const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
+        const headMatch = fullHtml.match(/<head[\s\S]*?<\/head>/i);
         masterHeadHtml = headMatch ? headMatch[0] : '';
+        masterHtmlCode = fullHtml.length > 4000 ? fullHtml.slice(0, 4000) + '\n<!-- ... tronqué -->' : fullHtml;
+        const footerMatch = fullHtml.match(/<!--\s*footer\s*-->([\s\S]*?)(?:<!--|<\/table>)/i)
+          || fullHtml.match(/<t[dr][^>]*>[\s\S]*?[Ss]e\s+d[ée]sabonner[\s\S]*?<\/t[dr]>/i);
+        masterFooterHtml = footerMatch ? footerMatch[0].trim() : '';
+        const ctaMatch = fullHtml.match(/<a\s[^>]*display\s*:\s*inline-block[^>]*>[\s\S]*?<\/a>/i)
+          || fullHtml.match(/<a\s[^>]*background-color\s*:[^>]*padding[^>]*>[\s\S]*?<\/a>/i);
+        masterCtaHtml = ctaMatch ? ctaMatch[0].trim() : '';
 
         if (selectedTypes.includes(8)) {
           const existing8 = await db.getTemplateByCampaignAndNumber(campaignId, 8);
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             previewText: masterData.previewText || '',
             layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
             designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
-            htmlCode: masterData.htmlCode || '',
+            htmlCode: fullHtml,
             mjmlCode: '',
             darkModeOverrides: masterData.darkModeOverrides || '',
             accessibilityNotes: masterData.accessibilityNotes || '',
@@ -101,6 +111,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
+    const masterContext: MasterContext = {
+      designSpecs: masterDesignSpecs,
+      headHtml: masterHeadHtml,
+      htmlCode: masterHtmlCode,
+      footerHtml: masterFooterHtml,
+      ctaHtml: masterCtaHtml,
+    };
+
     const otherTypes = selectedTypes.filter((t) => t !== 8);
     for (const num of otherTypes) {
       const typeInfo = TEMPLATE_TYPES.find((t) => t.number === num);
@@ -108,7 +126,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       console.log(`[Generate] Generating template #${num} (${typeInfo.type})...`);
       try {
-        const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, num, null);
+        const data = await generateTemplate(campaign.dna, masterContext, num, siteContent);
 
         // Enforce contrast on generated HTML
         if (data.htmlCode) {

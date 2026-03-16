@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import type { CampaignBrief, CampaignDNA } from '@/types';
-import { buildDNAPrompt, buildMasterTemplatePrompt, buildTemplatePrompt, type SiteContent } from './prompts';
+import { buildDNAPrompt, buildMasterTemplatePrompt, buildTemplatePrompt, type SiteContent, type MasterContext } from './prompts';
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
@@ -228,11 +228,10 @@ export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: Sit
 
 export async function generateTemplate(
   dna: CampaignDNA,
-  masterDesignSpecs: string,
-  masterHeadHtml: string,
+  masterContext: MasterContext,
   templateNumber: number,
   siteContent?: SiteContent | null
 ): Promise<RawTemplateResponse> {
-  const prompt = buildTemplatePrompt(dna, masterDesignSpecs, masterHeadHtml, templateNumber, siteContent);
+  const prompt = buildTemplatePrompt(dna, masterContext, templateNumber, siteContent);
   return generateJson<RawTemplateResponse>(prompt, 16384);
 }

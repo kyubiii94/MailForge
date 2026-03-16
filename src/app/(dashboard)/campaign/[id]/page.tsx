@@ -196,8 +196,10 @@ export default function CampaignPage() {
 
     let masterDesignSpecs = '';
     let masterHeadHtml = '';
+    let masterHtmlCode = '';
+    let masterFooterHtml = '';
+    let masterCtaHtml = '';
     let successCount = 0;
-    let firstRequest = true;
 
     for (const num of ordered) {
       if (abortRef.current) break;
@@ -216,12 +218,13 @@ export default function CampaignPage() {
             templateNumber: num,
             masterDesignSpecs,
             masterHeadHtml,
-            skipSiteContent: !firstRequest,
+            masterHtmlCode,
+            masterFooterHtml,
+            masterCtaHtml,
           }),
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        firstRequest = false;
 
         const data = await res.json();
 
@@ -243,9 +246,12 @@ export default function CampaignPage() {
           successCount++;
         }
 
-        if (num === 8 && data.masterDesignSpecs) {
-          masterDesignSpecs = data.masterDesignSpecs;
-          masterHeadHtml = data.masterHeadHtml || '';
+        if (num === 8) {
+          if (data.masterDesignSpecs) masterDesignSpecs = data.masterDesignSpecs;
+          if (data.masterHeadHtml) masterHeadHtml = data.masterHeadHtml;
+          if (data.masterHtmlCode) masterHtmlCode = data.masterHtmlCode;
+          if (data.masterFooterHtml) masterFooterHtml = data.masterFooterHtml;
+          if (data.masterCtaHtml) masterCtaHtml = data.masterCtaHtml;
         }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);

@@ -76,6 +76,14 @@ Règles :
 
 export type SiteContent = { imageUrls: string[]; textContent: string };
 
+export type MasterContext = {
+  designSpecs: string;
+  headHtml: string;
+  htmlCode: string;
+  footerHtml: string;
+  ctaHtml: string;
+};
+
 /** Instructions pour utiliser des placeholders Placehold.co quand aucune URL d'image du site n'est fournie. */
 function getPlaceholderImageBlock(dna: CampaignDNA): string {
   const hex = (dna.palette.primary || '1a1a1a').replace(/^#/, '');
@@ -211,8 +219,7 @@ ${ACCESSIBILITY_NEWSLETTER_RULES}`;
 
 export function buildTemplatePrompt(
   dna: CampaignDNA,
-  masterDesignSpecs: string,
-  masterHeadHtml: string,
+  masterContext: MasterContext,
   templateNumber: number,
   siteContent?: SiteContent | null
 ): string {
@@ -220,6 +227,18 @@ export function buildTemplatePrompt(
   if (!templateInfo) throw new Error(`Template type ${templateNumber} not found`);
   const siteBlock = getSiteContentBlock(siteContent ?? null);
   const imageFallback = !siteContent?.imageUrls?.length ? getPlaceholderImageBlock(dna) : '';
+
+  const masterHtmlBlock = masterContext.htmlCode
+    ? `\nHTML DU MASTER TEMPLATE (référence visuelle — tu DOIS t'en inspirer pour la structure, les couleurs, les espacements et le style global) :\n${masterContext.htmlCode}\n`
+    : '';
+
+  const masterFooterBlock = masterContext.footerHtml
+    ? `\nFOOTER DU MASTER (à RÉUTILISER TEL QUEL — copie-colle ce footer en bas de ton email, adapte uniquement le texte légal si nécessaire) :\n${masterContext.footerHtml}\n`
+    : '';
+
+  const masterCtaBlock = masterContext.ctaHtml
+    ? `\nSTYLE CTA DU MASTER (à REPRODUIRE — utilise exactement le même style de bouton, mêmes couleurs, mêmes paddings, mêmes border-radius) :\n${masterContext.ctaHtml}\n`
+    : '';
 
   return `${ART_DIRECTOR_PROFILE}
 
@@ -239,10 +258,15 @@ ADN DE LA CAMPAGNE :
 - Contraintes : ${dna.contraintes}
 
 DESIGN SYSTEM DE RÉFÉRENCE (du Master Template #8) :
-${masterDesignSpecs}
+${masterContext.designSpecs}
 
-HEAD HTML DE RÉFÉRENCE (à réutiliser pour la cohérence) :
-${masterHeadHtml}
+HEAD HTML DE RÉFÉRENCE (à réutiliser tel quel pour la cohérence des media queries et du dark mode) :
+${masterContext.headHtml}
+${masterHtmlBlock}${masterFooterBlock}${masterCtaBlock}
+CONSIGNE DE COHÉRENCE ABSOLUE :
+Tu DOIS réutiliser le MÊME footer, le MÊME style de bouton CTA et la MÊME structure <head> que le Master Template #8.
+Seuls le hero, le contenu du corps (texte, images) et l'objet de l'email changent selon le type "${templateInfo.type}".
+L'utilisateur doit reconnaître immédiatement que cet email appartient à la même campagne que le Master.
 
 Réponds en JSON avec cette structure exacte :
 {
@@ -261,10 +285,10 @@ Le champ "htmlCode" DOIT être un document HTML email COMPLET et LISIBLE :
 - Table 600px, CSS inline, role="presentation", cellpadding="0" cellspacing="0"
 - Hero : <h1> ou image en lien avec "${dna.objectif}" pour ${templateInfo.type}
 - Corps : 2-4 paragraphes concrets, couleur ${dna.palette.text}, font ${dna.designSystem.primaryFont}
-- CTA : bouton bg ${dna.palette.primary}, texte #fff, border-radius ${dna.designSystem.borderRadius}
-- Footer : "Se désabonner" + ${dna.marque.name}
+- CTA : bouton identique au Master (même style, même couleur bg ${dna.palette.primary}, même border-radius ${dna.designSystem.borderRadius})
+- Footer : COPIE EXACTE du footer du Master Template. Ne réinvente pas le footer.
 - Minimum 1500 caractères. Vrai copy en français lié à "${dna.objectif}" et "${dna.marque.name}". Pas de Lorem ipsum.
-- Cohérence avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer.
+- Cohérence visuelle totale avec le master : mêmes couleurs, mêmes polices, même style CTA, même footer, même structure <head>.
 - Images : <img src="..."> uniquement avec URL complète (http/https). Pas de code couleur (#hex ou hex seul) dans src.
 - NE PAS inclure de champ "mjmlCode" dans la réponse.
 

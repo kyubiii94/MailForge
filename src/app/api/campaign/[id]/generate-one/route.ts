@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
-import type { SiteContent } from '@/lib/ai/prompts';
+import type { SiteContent, MasterContext } from '@/lib/ai/prompts';
 
 export const maxDuration = 60;
 
@@ -29,6 +29,24 @@ async function buildSiteContentFromClient(clientId: string | null | undefined): 
   };
 }
 
+function extractFooterHtml(html: string): string {
+  const footerMatch = html.match(/<!--\s*footer\s*-->([\s\S]*?)(?:<!--|<\/table>)/i)
+    || html.match(/<t[dr][^>]*>[\s\S]*?[Ss]e\s+d[ée]sabonner[\s\S]*?<\/t[dr]>/i)
+    || html.match(/<t[dr][^>]*>[\s\S]*?unsubscribe[\s\S]*?<\/t[dr]>/i);
+  return footerMatch ? footerMatch[0].trim() : '';
+}
+
+function extractCtaHtml(html: string): string {
+  const ctaMatch = html.match(/<a\s[^>]*display\s*:\s*inline-block[^>]*>[\s\S]*?<\/a>/i)
+    || html.match(/<a\s[^>]*background-color\s*:[^>]*padding[^>]*>[\s\S]*?<\/a>/i);
+  return ctaMatch ? ctaMatch[0].trim() : '';
+}
+
+function truncateHtml(html: string, maxLen = 4000): string {
+  if (!html || html.length <= maxLen) return html;
+  return html.slice(0, maxLen) + '\n<!-- ... tronqué -->';
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const campaignId = typeof id === 'string' ? id.trim().toLowerCase() : id;
@@ -46,14 +64,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const templateNumber: number = body.templateNumber;
   const masterDesignSpecs: string = body.masterDesignSpecs || '';
   const masterHeadHtml: string = body.masterHeadHtml || '';
+  const masterHtmlCode: string = body.masterHtmlCode || '';
+  const masterFooterHtml: string = body.masterFooterHtml || '';
+  const masterCtaHtml: string = body.masterCtaHtml || '';
 
   if (typeof templateNumber !== 'number' || templateNumber < 1 || templateNumber > 8) {
     return NextResponse.json({ error: 'templateNumber invalide (1-8)' }, { status: 400 });
   }
 
-  const siteContent = templateNumber === 8
-    ? await buildSiteContentFromClient(campaign.clientId)
-    : null;
+  const siteContent = await buildSiteContentFromClient(campaign.clientId);
 
   try {
     if (templateNumber === 8) {
@@ -63,6 +82,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const designSpecs = JSON.stringify(masterData.designSpecs, null, 2);
       const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const headHtml = headMatch ? headMatch[0] : '';
+      const fullHtml = masterData.htmlCode || '';
+      const footerHtml = extractFooterHtml(fullHtml);
+      const ctaHtml = extractCtaHtml(fullHtml);
 
       const existing = await db.getTemplateByCampaignAndNumber(campaignId, 8);
       const template = existing
@@ -71,7 +93,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             previewText: masterData.previewText || '',
             layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
             designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
-            htmlCode: masterData.htmlCode || '',
+            htmlCode: fullHtml,
             mjmlCode: '',
             darkModeOverrides: masterData.darkModeOverrides || '',
             accessibilityNotes: masterData.accessibilityNotes || '',
@@ -85,7 +107,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             previewText: masterData.previewText || '',
             layoutDescription: masterData.layoutDescription || { structure: '', heroSection: '', bodySections: '', ctaSection: '', footer: '' },
             designSpecs: masterData.designSpecs || { width: '600px', backgroundColor: '#FFFFFF', fontStack: '', headingStyle: '', bodyStyle: '', ctaStyle: '', spacing: '', borderRadius: '', imageTreatment: '' },
-            htmlCode: masterData.htmlCode || '',
+            htmlCode: fullHtml,
             mjmlCode: '',
             darkModeOverrides: masterData.darkModeOverrides || '',
             accessibilityNotes: masterData.accessibilityNotes || '',
@@ -97,6 +119,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         template,
         masterDesignSpecs: designSpecs,
         masterHeadHtml: headHtml,
+        masterHtmlCode: truncateHtml(fullHtml),
+        masterFooterHtml: footerHtml,
+        masterCtaHtml: ctaHtml,
       });
     }
 
@@ -105,8 +130,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: `Type de template #${templateNumber} inconnu` }, { status: 400 });
     }
 
+    const masterContext: MasterContext = {
+      designSpecs: masterDesignSpecs,
+      headHtml: masterHeadHtml,
+      htmlCode: masterHtmlCode,
+      footerHtml: masterFooterHtml,
+      ctaHtml: masterCtaHtml,
+    };
+
     console.log(`[GenerateOne] Generating template #${templateNumber} (${typeInfo.type}) for campaign ${campaignId}...`);
-    const data = await generateTemplate(campaign.dna, masterDesignSpecs, masterHeadHtml, templateNumber, null);
+    const data = await generateTemplate(campaign.dna, masterContext, templateNumber, siteContent);
 
     const existing = await db.getTemplateByCampaignAndNumber(campaignId, templateNumber);
     const template = existing
