@@ -138,15 +138,13 @@ export default function CampaignPage() {
       if (!isGenerating && data.campaign?.status === 'generating') {
         const hasTemplates = Array.isArray(data.templates) && data.templates.length > 0;
         const finalStatus: Campaign['status'] = hasTemplates ? 'generated' : 'dna_ready';
-        if (finalStatus !== 'generating') {
-          setCampaign((prev) => prev ? { ...prev, status: finalStatus } : prev);
-          // Tentative de mise à jour côté API (best-effort, erreurs ignorées)
-          fetch(`/api/campaign/${campaignId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: finalStatus }),
-          }).catch(() => {});
-        }
+        setCampaign((prev) => prev ? { ...prev, status: finalStatus } : prev);
+        // Tentative de mise à jour côté API (best-effort, erreurs ignorées)
+        fetch(`/api/campaign/${campaignId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: finalStatus }),
+        }).catch(() => {});
       }
       if (!silent && data.campaign.selectedTemplateTypes?.length > 0) {
         setSelectedTypes(data.campaign.selectedTemplateTypes);
