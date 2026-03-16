@@ -36,11 +36,12 @@ export default function CampaignsPage() {
   const fetchCampaigns = async () => {
     setError(null);
     try {
-      const res = await fetch('/api/campaigns');
+      const res = await fetch('/api/campaigns', { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setCampaigns(data.campaigns || []);
+        setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
       } else {
+        setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
         setError(data.error || `Erreur ${res.status} : impossible de charger les campagnes.`);
       }
     } catch (err) {
@@ -119,6 +120,9 @@ export default function CampaignsPage() {
                         </h3>
                         <p className="text-xs text-surface-400 mt-0.5">
                           Créée le {formatDate(campaign.createdAt)}
+                          {(campaign as { clientName?: string | null }).clientName && (
+                            <> — Client : {(campaign as { clientName?: string }).clientName}</>
+                          )}
                           {campaign.selectedTemplateTypes?.length > 0 && (
                             <> — {campaign.selectedTemplateTypes.length} template{campaign.selectedTemplateTypes.length > 1 ? 's' : ''}</>
                           )}
