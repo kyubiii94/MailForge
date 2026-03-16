@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { generateMasterTemplate, generateTemplate } from '@/lib/ai/gemini';
 import { TEMPLATE_TYPES } from '@/lib/constants';
 import type { SiteContent, MasterContext } from '@/lib/ai/prompts';
+import { enforceContrast } from '@/lib/email/contrast-checker';
 
 export const maxDuration = 60;
 
@@ -79,6 +80,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.log(`[GenerateOne] Generating master template (#8) for campaign ${campaignId}...`);
       const masterData = await generateMasterTemplate(campaign.dna, siteContent);
 
+      // Renforcer l'accessibilité : corriger les contrastes (texte sur fond) du HTML master
+      if (masterData.htmlCode) {
+        const { html: fixedHtml, corrections } = enforceContrast(masterData.htmlCode);
+        masterData.htmlCode = fixedHtml;
+        if (corrections.length > 0) {
+          console.log(
+            `[GenerateOne] Master template: fixed ${corrections.length} contrast issues (accessibility)`
+          );
+        }
+      }
+
       const designSpecs = JSON.stringify(masterData.designSpecs, null, 2);
       const headMatch = masterData.htmlCode?.match(/<head[\s\S]*?<\/head>/i);
       const headHtml = headMatch ? headMatch[0] : '';
@@ -140,6 +152,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     console.log(`[GenerateOne] Generating template #${templateNumber} (${typeInfo.type}) for campaign ${campaignId}...`);
     const data = await generateTemplate(campaign.dna, masterContext, templateNumber, siteContent);
+
+    // Renforcer l'accessibilité : corriger les contrastes du HTML variant
+    if (data.htmlCode) {
+      const { html: fixedHtml, corrections } = enforceContrast(data.htmlCode);
+      data.htmlCode = fixedHtml;
+      if (corrections.length > 0) {
+        console.log(
+          `[GenerateOne] Template #${templateNumber}: fixed ${corrections.length} contrast issues (accessibility)`
+        );
+      }
+    }
 
     const existing = await db.getTemplateByCampaignAndNumber(campaignId, templateNumber);
     const template = existing
