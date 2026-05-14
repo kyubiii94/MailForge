@@ -74,22 +74,13 @@ export function extractTypography(pages: CrawledPage[]): Typography {
   };
 }
 
-/**
- * Extract color palette from crawled CSS content.
- * Uses frequency, CSS variables (including :root / [data-theme]), and semantic names (--primary, --brand, etc.).
- */
-export function extractColorPalette(pages: CrawledPage[]): ColorPalette {
+/** Hex/rgb occurrence counts from crawled CSS + HTML (shared by heuristic palette + LLM context). */
+function collectHexRgbFrequencyFromPages(pages: CrawledPage[]): Map<string, number> {
   const allCss = pages.flatMap((p) => p.cssContent).join('\n');
   const allHtml = pages.map((p) => p.html).join('\n');
   const combinedContent = allCss + allHtml;
-
-  // 1) Build map of all CSS variable names -> hex (from --name: #xxx or rgb())
   const varToHex = extractCssVariableColors(allCss);
 
-  // 2) Semantic variables from :root / [data-theme] and anywhere: prefer these for palette roles
-  const semantic = extractSemanticColors(allCss, varToHex);
-
-  // 3) Frequency-based extraction (hex + rgb) for fallback
   const colors = new Map<string, number>();
   let match;
 
@@ -117,6 +108,98 @@ export function extractColorPalette(pages: CrawledPage[]): ColorPalette {
     const hex = rgbToHex(parseInt(match[1]), parseInt(match[2]), parseInt(match[3]));
     colors.set(hex, (colors.get(hex) || 0) + 1);
   }
+
+  return colors;
+}
+
+function extractRelevantCssSnippet(css: string, maxChars: number): string {
+  const chunks: string[] = [];
+  const rootMatches = Array.from(css.matchAll(/:root\s*\{[^}]+\}/gi));
+  for (const m of rootMatches) chunks.push(m[0]);
+  const themeMatches = Array.from(css.matchAll(/\[data-theme[^\]]*\]\s*\{[^}]+\}/gi));
+  for (const m of themeMatches.slice(0, 5)) chunks.push(m[0]);
+  const bodyMatches = Array.from(css.matchAll(/body\s*\{[^}]+\}/gi));
+  for (const m of bodyMatches.slice(0, 4)) chunks.push(m[0]);
+  const htmlMatches = Array.from(css.matchAll(/html\s*\{[^}]+\}/gi));
+  for (const m of htmlMatches.slice(0, 2)) chunks.push(m[0]);
+
+  let out = chunks.join('\n\n');
+  if (out.length < maxChars * 0.4) {
+    const colorLines = css.split('\n').filter((l) => /(?:color|background|--[\w-]+\s*:)/i.test(l));
+    out += `\n\n${colorLines.slice(0, 350).join('\n')}`;
+  }
+  return out.slice(0, maxChars);
+}
+
+function sampleInlineColors(html: string, maxChars: number): string {
+  const samples = Array.from(html.matchAll(/style\s*=\s*["']([^"']*)["']/gi))
+    .map((m) => m[1])
+    .filter((s) => /color|background/i.test(s))
+    .slice(0, 150);
+  return samples.join('\n').slice(0, maxChars);
+}
+
+/**
+ * Compact bundle of scraped color evidence for LLM palette inference (OpenAI, etc.).
+ */
+export function buildPaletteInferenceContext(pages: CrawledPage[], opts?: { maxTotalChars?: number }): string {
+  if (pages.length === 0) return '';
+
+  const maxTotalChars = opts?.maxTotalChars ?? 28000;
+  const allCss = pages.flatMap((p) => p.cssContent).join('\n');
+  const allHtml = pages.map((p) => p.html).join('\n');
+  const varToHex = extractCssVariableColors(allCss);
+  const semantic = extractSemanticColors(allCss, varToHex);
+  const freq = collectHexRgbFrequencyFromPages(pages);
+
+  const sorted = Array.from(freq.entries())
+    .filter(([hex]) => !isBlackOrWhite(hex))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 45);
+
+  const neutralSorted = Array.from(freq.entries())
+    .filter(([hex]) => isBlackOrWhite(hex))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
+  const lines: string[] = [];
+  lines.push('=== Couleurs fréquentes (hors noir/blanc quasi purs) — hex : score ===');
+  for (const [hex, n] of sorted) lines.push(`${hex}\t${n}`);
+  lines.push('\n=== Noir / blanc / gris très clairs ou très foncés (si fond ou texte) ===');
+  for (const [hex, n] of neutralSorted) lines.push(`${hex}\t${n}`);
+
+  lines.push('\n=== Variables CSS résolues (extrait, nom → hex) ===');
+  const varEntries = Array.from(varToHex.entries()).slice(0, 100);
+  for (const [name, hex] of varEntries) lines.push(`--${name}\t${hex}`);
+
+  lines.push('\n=== Indices sémantiques (heuristique locale, peut être incomplet) ===');
+  lines.push(JSON.stringify(semantic));
+
+  lines.push('\n=== Extraits CSS (:root, thème, body, lignes avec color/background) ===');
+  lines.push(extractRelevantCssSnippet(allCss, 14000));
+
+  lines.push('\n=== Échantillon attributs style inline (couleur / fond) dans le HTML ===');
+  lines.push(sampleInlineColors(allHtml, 6000));
+
+  const text = lines.join('\n');
+  return text.length <= maxTotalChars ? text : `${text.slice(0, maxTotalChars)}\n… [tronqué]`;
+}
+
+/**
+ * Extract color palette from crawled CSS content.
+ * Uses frequency, CSS variables (including :root / [data-theme]), and semantic names (--primary, --brand, etc.).
+ */
+export function extractColorPalette(pages: CrawledPage[]): ColorPalette {
+  const allCss = pages.flatMap((p) => p.cssContent).join('\n');
+
+  // 1) Build map of all CSS variable names -> hex (from --name: #xxx or rgb())
+  const varToHex = extractCssVariableColors(allCss);
+
+  // 2) Semantic variables from :root / [data-theme] and anywhere: prefer these for palette roles
+  const semantic = extractSemanticColors(allCss, varToHex);
+
+  // 3) Frequency-based extraction (hex + rgb)
+  const colors = collectHexRgbFrequencyFromPages(pages);
 
   const filteredColors = Array.from(colors.entries())
     .filter(([hex]) => !isBlackOrWhite(hex))

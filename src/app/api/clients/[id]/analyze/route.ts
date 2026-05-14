@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { crawlMainPages } from '@/lib/scraping/crawler';
 import { extractColorPalette, extractTypography } from '@/lib/scraping/brand-extractor';
+import { refinePaletteWithOpenAI } from '@/lib/ai/openai-palette';
 import { safeJsonParse } from '@/lib/ai/gemini';
 import { GoogleGenAI } from '@google/genai';
 
@@ -54,7 +55,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
     let imageUrls: string[] = [];
     if (pages.length > 0) {
-      const colors = extractColorPalette(pages);
+      const heuristicColors = extractColorPalette(pages);
+      const colors = await refinePaletteWithOpenAI(pages, heuristicColors);
       const typography = extractTypography(pages);
       textContent = pages.map((p) => p.textContent).join('\n').slice(0, 8000);
       colorsStr = `primary: ${colors.primary}, secondary: ${colors.secondary}, accent: ${colors.accent}, bg: ${colors.background}, text: ${colors.text}`;

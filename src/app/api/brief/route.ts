@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { generateCampaignDNA } from '@/lib/ai/gemini';
 import { crawlMainPages } from '@/lib/scraping/crawler';
 import { extractColorPalette, extractTypography } from '@/lib/scraping/brand-extractor';
+import { refinePaletteWithOpenAI } from '@/lib/ai/openai-palette';
 import type { CampaignBrief } from '@/types';
 
 export const maxDuration = 120;
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest) {
       try {
         const pages = await crawlMainPages(siteUrl);
         if (pages.length > 0) {
-          const colors = extractColorPalette(pages);
+          const heuristic = extractColorPalette(pages);
+          const colors = await refinePaletteWithOpenAI(pages, heuristic);
           const typography = extractTypography(pages);
           const textContent = pages.map((p) => p.textContent).join('\n').slice(0, 8000);
           const title = pages[0]?.title || '';
