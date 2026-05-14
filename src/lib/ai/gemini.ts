@@ -1,6 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import type { CampaignBrief, CampaignDNA } from '@/types';
+import { safeJsonParse } from '@/lib/ai/json-response';
+import { generateLargeJsonWithOpenAI } from '@/lib/ai/openai-template-json';
 import { buildDNAPrompt, buildMasterTemplatePrompt, buildTemplatePrompt, type SiteContent, type MasterContext } from './prompts';
+
+export { safeJsonParse } from '@/lib/ai/json-response';
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
@@ -105,58 +109,22 @@ export function formatGeminiUserMessage(err: unknown): string {
   return raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
 }
 
-function extractJson(raw: string): string {
-  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
-  const braceMatch = raw.match(/\{[\s\S]*\}/);
-  if (braceMatch) return braceMatch[0];
-  return raw.trim();
-}
-
-function repairJson(raw: string): string {
-  let s = raw.trim();
-  const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
-  if (quoteCount % 2 !== 0) s += '"';
-  // Remplacer les valeurs manquantes : "key":} ou "key":] ou "key":, par "key":""
-  s = s.replace(/:\s*([}\],])/g, ':""$1');
-  let braces = 0;
-  let brackets = 0;
-  let inString = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') braces++;
-    else if (ch === '}') braces--;
-    else if (ch === '[') brackets++;
-    else if (ch === ']') brackets--;
-  }
-  s = s.replace(/,\s*$/, '');
-  while (brackets > 0) { s += ']'; brackets--; }
-  while (braces > 0) { s += '}'; braces--; }
-  return s;
-}
-
-export function safeJsonParse<T>(raw: string): T {
-  const jsonStr = extractJson(raw);
-  try {
-    return JSON.parse(jsonStr) as T;
-  } catch (firstErr) {
-    const trimmed = (raw || jsonStr || '').trim();
-    if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && trimmed.length > 0) {
-      const excerpt = trimmed.length > 350 ? trimmed.slice(0, 350) + '…' : trimmed;
-      throw new Error(`Réponse Gemini invalide (attendu du JSON) : ${excerpt}`);
-    }
-    console.warn('[Gemini] JSON.parse failed, attempting repair...');
-    try {
-      const repaired = repairJson(jsonStr);
-      return JSON.parse(repaired) as T;
-    } catch {
-      const msg = firstErr instanceof Error ? firstErr.message : String(firstErr);
-      if (msg.includes('Réponse Gemini')) throw firstErr;
-      throw new Error(`Réponse Gemini : le modèle n'a pas renvoyé de JSON valide. ${msg.slice(0, 120)}`);
-    }
-  }
+/** Sortie Gemini/HTML volumineux : retry autre modèle au lieu d’abandonner au premier parse KO. */
+function isRecoverableOutputError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes(`n'a pas renvoyé de JSON valide`) ||
+    msg.includes('JSON invalide') ||
+    msg.includes('Réponse IA invalide') ||
+    msg.includes('Réponse Gemini (pas du JSON)') ||
+    msg.includes('Réponse Gemini (attendu du JSON)') ||
+    msg.includes('Réponse Gemini invalide') ||
+    msg.includes('Unexpected non-whitespace') ||
+    msg.includes('Unexpected token') ||
+    msg.includes('Unexpected end') ||
+    msg.includes('Bad control character') ||
+    msg.includes('Expected double-quoted property name')
+  );
 }
 
 async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
@@ -216,6 +184,8 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
         if (isModelNotFoundError(err)) break;
         if (isTransientGeminiError(err) && attempt < maxAttemptsPerModel - 1) continue;
         if (isTransientGeminiError(err)) break;
+        if (isRecoverableOutputError(err) && attempt < maxAttemptsPerModel - 1) continue;
+        if (isRecoverableOutputError(err)) break;
         throw err;
       }
     }
@@ -261,6 +231,8 @@ async function generateText(prompt: string, maxTokens = 8192): Promise<string> {
         if (isModelNotFoundError(err)) break;
         if (isTransientGeminiError(err) && attempt < maxAttemptsPerModel - 1) continue;
         if (isTransientGeminiError(err)) break;
+        if (isRecoverableOutputError(err) && attempt < maxAttemptsPerModel - 1) continue;
+        if (isRecoverableOutputError(err)) break;
         throw err;
       }
     }
@@ -340,7 +312,7 @@ interface RawTemplateResponse {
 
 export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: SiteContent | null): Promise<RawTemplateResponse> {
   const prompt = buildMasterTemplatePrompt(dna, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 16384);
+  return generateTemplateJsonWithFallback(prompt);
 }
 
 // ─── Individual Template (1-7) Generation ─────────────────────────────────────
@@ -352,5 +324,27 @@ export async function generateTemplate(
   siteContent?: SiteContent | null
 ): Promise<RawTemplateResponse> {
   const prompt = buildTemplatePrompt(dna, masterContext, templateNumber, siteContent);
-  return generateJson<RawTemplateResponse>(prompt, 16384);
+  return generateTemplateJsonWithFallback(prompt);
+}
+
+async function generateTemplateJsonWithFallback(prompt: string): Promise<RawTemplateResponse> {
+  try {
+    return await generateJson<RawTemplateResponse>(prompt, 16384);
+  } catch (geminiErr) {
+    const key = process.env.OPENAI_API_KEY?.trim();
+    if (!key) throw geminiErr;
+    console.warn(
+      '[Templates] Échec Gemini, fallback OpenAI:',
+      geminiErr instanceof Error ? geminiErr.message.slice(0, 240) : geminiErr
+    );
+    try {
+      return await generateLargeJsonWithOpenAI<RawTemplateResponse>(prompt, 16384);
+    } catch (openaiErr) {
+      const g = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      const o = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
+      throw new Error(
+        `Impossible de générer le template (Gemini puis OpenAI). Gemini : ${g.slice(0, 200)} — OpenAI : ${o.slice(0, 200)}`
+      );
+    }
+  }
 }
