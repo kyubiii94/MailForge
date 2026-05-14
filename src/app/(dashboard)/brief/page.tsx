@@ -108,10 +108,20 @@ function BriefPageContent() {
       }
 
       if (!res.ok) {
-        const msg = data.error || 'Erreur lors de la génération de l\'ADN.';
-        setError(res.status === 503 && msg.toLowerCase().includes('gemini')
-          ? `${msg} Ajoutez GEMINI_API_KEY dans Vercel → Settings → Environment Variables (Production), puis redéployez.`
-          : msg);
+        let msg = data.error || 'Erreur lors de la génération de l\'ADN.';
+        if (typeof msg === 'string' && msg.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(msg) as { error?: { message?: string }; message?: string };
+            const inner = parsed?.error?.message ?? parsed?.message;
+            if (typeof inner === 'string') msg = inner;
+          } catch {
+            /* garder msg */
+          }
+        }
+        if (/high demand|unavailable|503|temporarily/i.test(msg)) {
+          msg = 'Le service IA est momentanément saturé. Réessayez dans une minute.';
+        }
+        setError(msg);
         return;
       }
 

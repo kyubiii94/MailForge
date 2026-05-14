@@ -3,35 +3,20 @@ import { db } from '@/lib/db';
 import { crawlMainPages } from '@/lib/scraping/crawler';
 import { extractColorPalette, extractTypography } from '@/lib/scraping/brand-extractor';
 import { refinePaletteWithOpenAI } from '@/lib/ai/openai-palette';
-import { safeJsonParse } from '@/lib/ai/gemini';
-import { GoogleGenAI } from '@google/genai';
+import { formatGeminiUserMessage, geminiGenerateJson } from '@/lib/ai/gemini';
 
 export const maxDuration = 120;
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-
-async function analyzeWithGemini(prompt: string): Promise<string> {
-  const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key) throw new Error('GEMINI_API_KEY manquante');
-  const client = new GoogleGenAI({ apiKey: key });
-
-  for (const model of MODELS) {
-    try {
-      const response = await client.models.generateContent({
-        model,
-        contents: prompt,
-        config: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
-      }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-      const text = response.text || response.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-    } catch (err) {
-      const code = (err as { status?: number })?.status;
-      if (code === 404) continue;
-      throw err;
-    }
-  }
-  throw new Error('Aucun modèle Gemini accessible');
-}
+type GeminiSiteAnalysis = {
+  sector: string;
+  positioning: string;
+  toneOfVoice: string;
+  keywords: string[];
+  audience: string;
+  ambiance: string;
+  colors: string;
+  fonts: string;
+};
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -93,24 +78,16 @@ Réponds en JSON avec exactement cette structure :
 Sois précis et concret. Base-toi sur le contenu réel du site, pas sur des suppositions génériques.`;
 
     console.log('[Analyze] Calling Gemini for site analysis...');
-    const rawResponse = await analyzeWithGemini(prompt);
-
-    let analysis: {
-      sector: string;
-      positioning: string;
-      toneOfVoice: string;
-      keywords: string[];
-      audience: string;
-      ambiance: string;
-      colors: string;
-      fonts: string;
-    };
-
+    let analysis: GeminiSiteAnalysis;
     try {
-      analysis = safeJsonParse<typeof analysis>(rawResponse);
-    } catch {
-      console.error('[Analyze] Failed to parse Gemini response:', rawResponse.slice(0, 500));
-      return NextResponse.json({ error: 'Réponse IA non valide. Réessayez.' }, { status: 500 });
+      analysis = await geminiGenerateJson<GeminiSiteAnalysis>(prompt, 4096);
+    } catch (parseErr) {
+      console.error('[Analyze] Gemini JSON failed:', parseErr);
+      const friendly = formatGeminiUserMessage(parseErr);
+      return NextResponse.json(
+        { error: friendly },
+        { status: /momentanément saturé/i.test(friendly) ? 503 : 500 }
+      );
     }
 
     const siteAnalysis = {
@@ -133,8 +110,9 @@ Sois précis et concret. Base-toi sur le contenu réel du site, pas sur des supp
 
     return NextResponse.json({ client: updated });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur lors de l\'analyse';
+    const message = formatGeminiUserMessage(err);
     console.error('[Analyze] Error:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /momentanément saturé/i.test(message) ? 503 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

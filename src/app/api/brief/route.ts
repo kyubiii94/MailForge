@@ -116,6 +116,9 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur interne';
     console.error('[Brief] Error:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const isSaturation =
+      /momentanément saturé|high demand|unavailable|503|429/i.test(message) ||
+      (message.includes('Réessayez') && message.includes('minute'));
+    return NextResponse.json({ error: message }, { status: isSaturation ? 503 : 500 });
   }
 }
