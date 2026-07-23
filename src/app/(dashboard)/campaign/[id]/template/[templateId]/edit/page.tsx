@@ -1,15 +1,29 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { NewsletterTemplate, Campaign } from '@/types';
 import type { Block } from '@/types/editor';
 import { useEditorStore } from '@/stores/editor-store';
-import { EmailEditor } from '@/components/editor/EmailEditor';
 import { mjmlToBlocks, htmlToBlocks } from '@/components/editor/utils/mjml-to-blocks';
 import { blocksToMjml } from '@/components/editor/utils/blocks-to-mjml';
 import { ArrowLeft } from 'lucide-react';
 
+const EmailEditor = dynamic(
+  () =>
+    import('@/components/editor/EmailEditor').then((m) => ({
+      default: m.EmailEditor,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 flex items-center justify-center min-h-0">
+        <div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full" />
+      </div>
+    ),
+  }
+);
 export default function EditorPage() {
   const params = useParams();
   const router = useRouter();

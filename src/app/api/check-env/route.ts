@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { testConnection } from '@/lib/ai/gemini';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/check-env - Diagnostic complet : format de la clé + test de connexion réel.
  */

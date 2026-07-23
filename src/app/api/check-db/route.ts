@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/check-db — Diagnostic BDD : variable d’env + connexion + nombre de campagnes.
  * À appeler sur Vercel pour vérifier que la même base est utilisée qu’en local.
