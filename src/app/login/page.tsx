@@ -1,5 +1,5 @@
 import { Zap } from 'lucide-react';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { LoginForm } from '@/features/auth/components/login-form';
 import { countUsers } from '@/features/auth/service';
 
@@ -10,11 +10,14 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // En cas d'erreur DB, on affiche la connexion (pas le setup) pour ne pas bloquer
+  // un admin déjà créé. Le setup reste accessible uniquement si count === 0.
   let needsSetup = false;
   try {
     needsSetup = (await countUsers()) === 0;
-  } catch {
-    needsSetup = true;
+  } catch (err) {
+    console.error('[login] Impossible de vérifier les utilisateurs:', err);
+    needsSetup = false;
   }
 
   const callbackUrl =
@@ -35,16 +38,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
 
         <Card variant="elevated" padding="lg">
-          <CardHeader>
-            <CardTitle>
-              {needsSetup ? 'Configuration initiale' : 'Connexion'}
-            </CardTitle>
-            <CardDescription>
-              {needsSetup
-                ? 'Créez le premier compte administrateur pour sécuriser MailForge.'
-                : 'Connectez-vous pour accéder aux campagnes et à la bibliothèque.'}
-            </CardDescription>
-          </CardHeader>
           <LoginForm needsSetup={needsSetup} callbackUrl={callbackUrl} />
         </Card>
       </div>

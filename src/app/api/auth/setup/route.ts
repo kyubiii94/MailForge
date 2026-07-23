@@ -8,8 +8,9 @@ export async function GET() {
     const count = await countUsers();
     return NextResponse.json({ needsSetup: count === 0 });
   } catch {
+    // Ne pas proposer le setup si on ne peut pas vérifier — évite un faux écran d'inscription
     return NextResponse.json(
-      { needsSetup: true, error: 'Base de données indisponible' },
+      { needsSetup: false, error: 'Base de données indisponible' },
       { status: 503 }
     );
   }
