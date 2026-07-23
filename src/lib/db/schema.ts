@@ -1,6 +1,16 @@
 import { pgTable, uuid, text, timestamp, integer, jsonb, primaryKey } from 'drizzle-orm/pg-core';
 import type { CampaignBrief, CampaignDNA, LayoutDescription, DesignSpecs, Client } from '@/types';
 
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  name: text('name').notNull().default(''),
+  role: text('role').notNull().default('admin'), // 'admin' | 'editor'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const clients = pgTable('clients', {
   id: uuid('id').defaultRandom().primaryKey(),
   workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),

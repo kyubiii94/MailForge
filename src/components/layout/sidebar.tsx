@@ -6,12 +6,12 @@ import { cn } from '@/lib/utils';
 import {
   FolderOpen,
   PenLine,
-  Sparkles,
   Zap,
   Users,
   X,
   BookImage,
 } from 'lucide-react';
+import { LogoutButton } from '@/features/auth/components/logout-button';
 
 const navItems = [
   { href: '/clients', label: 'Clients', icon: Users },
@@ -23,9 +23,13 @@ const navItems = [
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  };
 }
 
-export function Sidebar({ open = true, onClose }: SidebarProps) {
+export function Sidebar({ open = true, onClose, user }: SidebarProps) {
   const pathname = usePathname();
   const isDrawer = typeof onClose === 'function';
 
@@ -96,15 +100,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-surface-100">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-brand-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-surface-800">MailForge</p>
-            <p className="text-xs text-surface-400">Gemini AI</p>
-          </div>
-        </div>
+        <LogoutButton name={user?.name} email={user?.email} />
       </div>
     </aside>
     </>

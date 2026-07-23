@@ -33,9 +33,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className
           )}
           {...props}
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={
+            error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined
+          }
         />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-        {hint && !error && <p className="mt-1 text-sm text-surface-500">{hint}</p>}
+        {error && (
+          <p id={`${inputId}-error`} className="mt-1 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p id={`${inputId}-hint`} className="mt-1 text-sm text-surface-500">
+            {hint}
+          </p>
+        )}
       </div>
     );
   }

@@ -4,7 +4,15 @@ import { useState } from 'react';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Menu } from 'lucide-react';
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+interface DashboardShellProps {
+  children: React.ReactNode;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  };
+}
+
+export function DashboardShell({ children, user }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -23,7 +31,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="relative flex flex-1 min-w-0 min-h-0">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          user={user}
+        />
         <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
           <div className="p-4 md:p-8 max-w-6xl mx-auto bg-surface-100 min-h-full">
             {children}
