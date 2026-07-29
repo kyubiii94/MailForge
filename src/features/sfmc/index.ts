@@ -59,8 +59,10 @@ export {
 } from './schemas/campaign';
 
 // IA (assistant de contenu — jamais de code SFMC)
-export { suggestContent, type AiContentSuggestion, type AiAdviceSuggestion } from './ai/content-assistant';
+export { suggestContent, type AiContentSuggestion, type AiAdviceSuggestion, type AiArticleSuggestion, type AiStructureSuggestion } from './ai/content-assistant';
 export { type AiBrief } from './ai/prompt';
+export { STRUCTURE_TEMPLATES, getStructureTemplate, type StructureTemplate, type StructureTemplateId } from './ai/structure-templates';
+export { ARTICLE_LAYOUTS, ARTICLE_LAYOUT_IDS, type ArticleLayout, type ArticleLayoutInfo } from './modules/article';
 
 // Export
 export { buildExport, type ExportFormat, type ExportResult } from './export/package';

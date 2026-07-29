@@ -189,40 +189,77 @@ export default function EmailBuilderPage({
       {showAi && (
         <AiPanel
           emailId={emailId}
-          onApply={(s) => {
+          onApply={(s, structure) => {
             const patch: Partial<SfmcEmailConfig> = {};
             if (s.subject) patch.subject = s.subject;
             if (s.preheader) patch.preheader = s.preheader;
             if (s.utmTrigger) patch.utmTrigger = s.utmTrigger;
             setConfig((prev) => {
               if (!prev) return prev;
-              const modules = prev.modules.map((m) => {
-                if (m.type === 'hero') {
-                  return {
-                    ...m,
-                    props: {
-                      ...m.props,
-                      ...(s.heroTitle ? { title: s.heroTitle } : {}),
-                      ...(s.heroText ? { text: s.heroText } : {}),
-                    },
+
+              const pool = prev.modules.map((m) => ({ ...m }));
+              const take = (type: string) => {
+                const idx = pool.findIndex((m) => m.type === type);
+                if (idx === -1) return null;
+                return pool.splice(idx, 1)[0];
+              };
+
+              const nextModules: typeof prev.modules = [];
+              for (const type of structure.moduleOrder) {
+                let mod = take(type);
+                if (!mod) {
+                  const def = getModuleDef(type);
+                  if (!def) continue;
+                  mod = {
+                    id: `${type}-ai-${Date.now()}`,
+                    type,
+                    enabled: true,
+                    props: { ...def.defaultProps },
                   };
                 }
-                if (m.type === 'cta' && s.ctaLabel) {
-                  return { ...m, props: { ...m.props, label: s.ctaLabel } };
+                let props = { ...mod.props };
+                if (type === 'hero') {
+                  props = {
+                    ...props,
+                    ...(s.heroTitle ? { title: s.heroTitle } : {}),
+                    ...(s.heroText ? { text: s.heroText } : {}),
+                  };
                 }
-                if (m.type === 'advice' && s.advice.length) {
-                  const items = s.advice.map((a) => ({
-                    img: 'https://image.by.seloger.com/lib/fe2311737364047b731d79/m/1/a385eb83-989c-4c47-bdd7-1df107a892e0.png',
-                    title: a.title,
-                    text: a.text,
-                    linkLabel: a.linkLabel,
-                    linkUrl: a.linkLabel ? '@fsrboLink' : '',
-                  }));
-                  return { ...m, props: { ...m.props, items } };
+                if (type === 'cta' && s.ctaLabel) {
+                  props = { ...props, label: s.ctaLabel };
                 }
-                return m;
-              });
-              return { ...prev, ...patch, modules };
+                if (type === 'advice' && s.advice.length) {
+                  props = {
+                    ...props,
+                    items: s.advice.map((a) => ({
+                      img: 'https://image.by.seloger.com/lib/fe2311737364047b731d79/m/1/a385eb83-989c-4c47-bdd7-1df107a892e0.png',
+                      title: a.title,
+                      text: a.text,
+                      linkLabel: a.linkLabel,
+                      linkUrl: a.linkLabel ? '@fsrboLink' : '',
+                    })),
+                  };
+                }
+                if (type === 'article') {
+                  props = {
+                    ...props,
+                    title: s.article.title || (props.title as string),
+                    teaser: s.article.teaser || (props.teaser as string),
+                    layout: structure.articleLayout || s.article.layout || 'horizontal',
+                    link: (props.link as string) || '@articleLink',
+                    img:
+                      (props.img as string) ||
+                      'https://image.by.seloger.com/lib/fe2311737364047b731d79/m/1/a385eb83-989c-4c47-bdd7-1df107a892e0.png',
+                  };
+                }
+                nextModules.push({ ...mod, enabled: true, props });
+              }
+
+              for (const m of pool) {
+                nextModules.push({ ...m, enabled: false });
+              }
+
+              return { ...prev, ...patch, modules: nextModules };
             });
             setSaved(false);
           }}
