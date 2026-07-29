@@ -1,6 +1,7 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb, primaryKey } from 'drizzle-orm/pg-core';
-import type { CampaignBrief, CampaignDNA, LayoutDescription, DesignSpecs, Client } from '@/types';
+import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import type { SfmcEmailConfig, RenderedArtifacts } from '@/features/sfmc';
 
+/** Comptes d'accès à la plateforme (Auth.js, credentials). */
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').notNull().unique(),
@@ -11,97 +12,24 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const clients = pgTable('clients', {
+/** Campagnes CRM SeLoger (client unique — emails & newsletters uniquement). */
+export const sfmcCampaigns = pgTable('sfmc_campaigns', {
   id: uuid('id').defaultRandom().primaryKey(),
-  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
   name: text('name').notNull(),
-  sector: text('sector').notNull().default(''),
-  positioning: text('positioning').notNull().default(''),
-  website: text('website'),
-  socialLinks: jsonb('social_links').$type<Client['socialLinks']>().notNull().default({}),
-  distribution: jsonb('distribution').$type<string[]>().notNull().default([]),
-  toneOfVoice: jsonb('tone_of_voice').$type<Client['toneOfVoice']>().notNull().default({ style: '', language: [], do: [], dont: [] }),
-  technicalPrefs: jsonb('technical_prefs').$type<Client['technicalPrefs']>().notNull().default({ esp: null, mergeTagsFormat: '', darkMode: false, languages: [] }),
-  notes: text('notes').notNull().default(''),
-  siteAnalysis: jsonb('site_analysis').$type<Client['siteAnalysis']>(),
+  type: text('type').notNull().default('libre'),
+  status: text('status').notNull().default('draft'), // draft | ready | exported
+  brief: text('brief').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const campaigns = pgTable('campaigns', {
+/** Emails d'une campagne (plusieurs par campagne pour les Journeys). */
+export const sfmcEmails = pgTable('sfmc_emails', {
   id: uuid('id').defaultRandom().primaryKey(),
-  clientId: uuid('client_id').references(() => clients.id, { onDelete: 'set null' }),
-  name: text('name').notNull(),
-  brief: jsonb('brief').$type<CampaignBrief>().notNull(),
-  dna: jsonb('dna').$type<CampaignDNA>().notNull(),
-  status: text('status').notNull().default('draft'),
-  selectedTemplateTypes: jsonb('selected_template_types').$type<number[]>().notNull().default([]),
+  campaignId: uuid('campaign_id').notNull().references(() => sfmcCampaigns.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  config: jsonb('config').$type<SfmcEmailConfig>().notNull(),
+  rendered: jsonb('rendered').$type<RenderedArtifacts>().notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
-
-export const templates = pgTable('templates', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
-  templateNumber: integer('template_number').notNull(),
-  templateType: text('template_type').notNull(),
-  subjectLine: text('subject_line').notNull().default(''),
-  previewText: text('preview_text').notNull().default(''),
-  layoutDescription: jsonb('layout_description').$type<LayoutDescription>().notNull(),
-  designSpecs: jsonb('design_specs').$type<DesignSpecs>().notNull(),
-  htmlCode: text('html_code').notNull().default(''),
-  mjmlCode: text('mjml_code').notNull().default(''),
-  darkModeOverrides: text('dark_mode_overrides').notNull().default(''),
-  accessibilityNotes: text('accessibility_notes').notNull().default(''),
-  coherenceTips: text('coherence_tips').notNull().default(''),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-// ─── Inspiration Library ─────────────────────────────────────────────────────
-
-export const newsletterInspirations = pgTable('newsletter_inspirations', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
-  title: text('title').notNull(),
-  description: text('description'),
-  sourceUrl: text('source_url'),
-  sourceBrand: text('source_brand'),
-  fileType: text('file_type').notNull(), // 'image' | 'html'
-  filePath: text('file_path').notNull(),
-  thumbnailPath: text('thumbnail_path'),
-  htmlContent: text('html_content'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const inspirationTags = pgTable('inspiration_tags', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
-  name: text('name').notNull(),
-  color: text('color').notNull().default('#6366F1'),
-});
-
-export const inspirationTagLinks = pgTable('inspiration_tag_links', {
-  inspirationId: uuid('inspiration_id').notNull().references(() => newsletterInspirations.id, { onDelete: 'cascade' }),
-  tagId: uuid('tag_id').notNull().references(() => inspirationTags.id, { onDelete: 'cascade' }),
-}, (t) => [
-  primaryKey({ columns: [t.inspirationId, t.tagId] }),
-]);
-
-export const newsletterStyles = pgTable('newsletter_styles', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  workspaceId: text('workspace_id').notNull().default('00000000-0000-0000-0000-000000000001'),
-  name: text('name').notNull(),
-  description: text('description'),
-  stylePrompt: text('style_prompt'),
-  coverInspirationId: uuid('cover_inspiration_id').references(() => newsletterInspirations.id, { onDelete: 'set null' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const styleInspirationLinks = pgTable('style_inspiration_links', {
-  styleId: uuid('style_id').notNull().references(() => newsletterStyles.id, { onDelete: 'cascade' }),
-  inspirationId: uuid('inspiration_id').notNull().references(() => newsletterInspirations.id, { onDelete: 'cascade' }),
-}, (t) => [
-  primaryKey({ columns: [t.styleId, t.inspirationId] }),
-]);

@@ -1,8 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import type { CampaignBrief, CampaignDNA } from '@/types';
 import { safeJsonParse } from '@/lib/ai/json-response';
-import { generateLargeJsonWithOpenAI } from '@/lib/ai/openai-template-json';
-import { buildDNAPrompt, buildMasterTemplatePrompt, buildTemplatePrompt, type SiteContent, type MasterContext } from './prompts';
 
 export { safeJsonParse } from '@/lib/ai/json-response';
 
@@ -109,7 +106,7 @@ export function formatGeminiUserMessage(err: unknown): string {
   return raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
 }
 
-/** Sortie Gemini/HTML volumineux : retry autre modèle au lieu d’abandonner au premier parse KO. */
+/** Sortie Gemini volumineuse : retry autre modèle au lieu d’abandonner au premier parse KO. */
 function isRecoverableOutputError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return (
@@ -137,13 +134,10 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
       try {
         if (attempt > 0) {
           const backoff = Math.min(5000, 900 * Math.pow(2, attempt - 1));
-          console.log(`[Gemini] Backoff ${backoff}ms then retry ${attempt + 1}/${maxAttemptsPerModel} (${model})`);
           await sleep(backoff);
         }
-        console.log(`[Gemini] Trying model: ${model} (JSON mode, ${maxTokens} max tokens)`);
-        // Disable thinking on 2.5 models to avoid timeouts on Vercel free tier (60s limit)
         const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
-        const response = await client.models.generateContent({
+        const response = (await client.models.generateContent({
           model,
           contents: prompt,
           config: {
@@ -151,7 +145,7 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
             maxOutputTokens: maxTokens,
             ...(thinkingConfig ? { thinkingConfig } : {}),
           },
-        }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+        })) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
         let text = response.text;
         if (!text && response.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -172,61 +166,8 @@ async function generateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
           }
         }
 
-        console.log(`[Gemini] Raw response (${text.length} chars): ${text.slice(0, 300)}`);
-        const parsedOut = safeJsonParse<T>(text);
-        console.log(`[Gemini] JSON parsed OK with model ${model}`);
-        return parsedOut;
+        return safeJsonParse<T>(text);
       } catch (err) {
-        const code = getErrorCode(err);
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[Gemini] Model ${model} failed (HTTP ${code ?? '?'}):`, msg.slice(0, 300));
-        lastError = err;
-        if (isModelNotFoundError(err)) break;
-        if (isTransientGeminiError(err) && attempt < maxAttemptsPerModel - 1) continue;
-        if (isTransientGeminiError(err)) break;
-        if (isRecoverableOutputError(err) && attempt < maxAttemptsPerModel - 1) continue;
-        if (isRecoverableOutputError(err)) break;
-        throw err;
-      }
-    }
-  }
-  throw new Error(formatGeminiUserMessage(lastError));
-}
-
-async function generateText(prompt: string, maxTokens = 8192): Promise<string> {
-  const client = getClient();
-  let lastError: unknown;
-
-  for (const model of MODELS) {
-    const maxAttemptsPerModel = 3;
-    for (let attempt = 0; attempt < maxAttemptsPerModel; attempt++) {
-      try {
-        if (attempt > 0) {
-          const backoff = Math.min(5000, 900 * Math.pow(2, attempt - 1));
-          await sleep(backoff);
-        }
-        console.log(`[Gemini] Trying model: ${model} (text mode)`);
-        const thinkingConfig = model.includes('2.5') ? { thinkingBudget: 0 } : undefined;
-        const response = await client.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            maxOutputTokens: maxTokens,
-            ...(thinkingConfig ? { thinkingConfig } : {}),
-          },
-        }) as { text?: string; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-
-        let text = response.text;
-        if (!text && response.candidates?.[0]?.content?.parts?.[0]?.text) {
-          text = response.candidates[0].content.parts[0].text;
-        }
-        if (!text) throw new Error('Réponse vide de Gemini');
-        console.log(`[Gemini] Success with model ${model} (${text.length} chars)`);
-        return text;
-      } catch (err) {
-        const code = getErrorCode(err);
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[Gemini] Model ${model} failed (HTTP ${code ?? '?'}):`, msg.slice(0, 300));
         lastError = err;
         if (isModelNotFoundError(err)) break;
         if (isTransientGeminiError(err) && attempt < maxAttemptsPerModel - 1) continue;
@@ -245,11 +186,11 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
   const details: Record<string, string> = {};
   for (const model of MODELS) {
     try {
-      const response = await client.models.generateContent({
+      const response = (await client.models.generateContent({
         model,
         contents: 'Reply with exactly: ok',
         config: { maxOutputTokens: 10 },
-      }) as { text?: string };
+      })) as { text?: string };
       if (response.text) {
         return { ok: true, model, details };
       }
@@ -265,86 +206,7 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; er
   return { ok: false, model: MODELS.join(', '), error: 'Aucun modèle accessible', details };
 }
 
-// ─── Campaign DNA Generation ──────────────────────────────────────────────────
-
 /** Réponse JSON Gemini avec retry multi-modèles et backoff (503 / 429 / UNAVAILABLE). */
 export async function geminiGenerateJson<T>(prompt: string, maxTokens = 4096): Promise<T> {
   return generateJson<T>(prompt, maxTokens);
-}
-
-export async function generateCampaignDNA(
-  brief: CampaignBrief,
-  crawledData?: { colors?: string; fonts?: string; textContent?: string; title?: string; metaDescription?: string }
-): Promise<CampaignDNA> {
-  const prompt = buildDNAPrompt(brief, crawledData);
-  return generateJson<CampaignDNA>(prompt, 4096);
-}
-
-// ─── Master Template (#8) Generation ──────────────────────────────────────────
-
-interface RawTemplateResponse {
-  subjectLine: string;
-  previewText: string;
-  layoutDescription: {
-    structure: string;
-    heroSection: string;
-    bodySections: string;
-    ctaSection: string;
-    footer: string;
-  };
-  designSpecs: {
-    width: string;
-    backgroundColor: string;
-    fontStack: string;
-    headingStyle: string;
-    bodyStyle: string;
-    ctaStyle: string;
-    spacing: string;
-    borderRadius: string;
-    imageTreatment: string;
-  };
-  htmlCode: string;
-  mjmlCode?: string;
-  darkModeOverrides: string;
-  accessibilityNotes: string;
-  coherenceTips: string;
-}
-
-export async function generateMasterTemplate(dna: CampaignDNA, siteContent?: SiteContent | null): Promise<RawTemplateResponse> {
-  const prompt = buildMasterTemplatePrompt(dna, siteContent);
-  return generateTemplateJsonWithFallback(prompt);
-}
-
-// ─── Individual Template (1-7) Generation ─────────────────────────────────────
-
-export async function generateTemplate(
-  dna: CampaignDNA,
-  masterContext: MasterContext,
-  templateNumber: number,
-  siteContent?: SiteContent | null
-): Promise<RawTemplateResponse> {
-  const prompt = buildTemplatePrompt(dna, masterContext, templateNumber, siteContent);
-  return generateTemplateJsonWithFallback(prompt);
-}
-
-async function generateTemplateJsonWithFallback(prompt: string): Promise<RawTemplateResponse> {
-  try {
-    return await generateJson<RawTemplateResponse>(prompt, 16384);
-  } catch (geminiErr) {
-    const key = process.env.OPENAI_API_KEY?.trim();
-    if (!key) throw geminiErr;
-    console.warn(
-      '[Templates] Échec Gemini, fallback OpenAI:',
-      geminiErr instanceof Error ? geminiErr.message.slice(0, 240) : geminiErr
-    );
-    try {
-      return await generateLargeJsonWithOpenAI<RawTemplateResponse>(prompt, 16384);
-    } catch (openaiErr) {
-      const g = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      const o = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
-      throw new Error(
-        `Impossible de générer le template (Gemini puis OpenAI). Gemini : ${g.slice(0, 200)} — OpenAI : ${o.slice(0, 200)}`
-      );
-    }
-  }
 }

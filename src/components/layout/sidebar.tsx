@@ -5,19 +5,15 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   FolderOpen,
-  PenLine,
-  Zap,
-  Users,
+  Plus,
+  Building2,
   X,
-  BookImage,
 } from 'lucide-react';
 import { LogoutButton } from '@/features/auth/components/logout-button';
 
 const navItems = [
-  { href: '/clients', label: 'Clients', icon: Users },
-  { href: '/brief', label: 'Nouveau Brief', icon: PenLine },
   { href: '/campaigns', label: 'Campagnes', icon: FolderOpen },
-  { href: '/library', label: 'Inspiration', icon: BookImage },
+  { href: '/campaigns/new', label: 'Nouveau brief', icon: Plus },
 ];
 
 interface SidebarProps {
@@ -51,13 +47,13 @@ export function Sidebar({ open = true, onClose, user }: SidebarProps) {
         )}
       >
         <div className="p-6 border-b border-surface-100 flex items-center justify-between gap-2">
-          <Link href="/" className="flex items-center gap-2.5 flex-1 min-w-0" onClick={isDrawer ? onClose : undefined}>
+          <Link href="/campaigns" className="flex items-center gap-2.5 flex-1 min-w-0" onClick={isDrawer ? onClose : undefined}>
           <div className="w-9 h-9 gradient-brand rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
+            <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-surface-900">MailForge</h1>
-            <p className="text-[10px] font-medium text-brand-600 tracking-wider uppercase">Newsletter AI</p>
+            <h1 className="text-lg font-bold text-surface-900">SeLoger CRM</h1>
+            <p className="text-[10px] font-medium text-brand-600 tracking-wider uppercase">Campaign Builder SFMC</p>
           </div>
           </Link>
           {isDrawer && (
@@ -77,7 +73,10 @@ export function Sidebar({ open = true, onClose, user }: SidebarProps) {
           Navigation
         </p>
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/') || (item.href === '/campaigns' && pathname.startsWith('/campaign')) || (item.href === '/clients' && pathname.startsWith('/clients'));
+          const isActive =
+            item.href === '/campaigns'
+              ? pathname === '/campaigns' || (pathname.startsWith('/campaigns/') && pathname !== '/campaigns/new')
+              : pathname === item.href;
           const Icon = item.icon;
 
           return (

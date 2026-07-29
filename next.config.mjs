@@ -1,17 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // Réduit le tree-shaking de lucide / dnd-kit (barrels) → chunks client plus petits
-    optimizePackageImports: ['lucide-react', '@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+    // Réduit le tree-shaking des barrels lucide → chunks client plus petits
+    optimizePackageImports: ['lucide-react'],
     // Évite d'embarquer ces libs lourdes dans les bundles serverless
-    serverComponentsExternalPackages: [
-      'mjml',
-      'cheerio',
-      'openai',
-      'bcryptjs',
-      '@google/genai',
-      '@neondatabase/serverless',
-    ],
+    serverComponentsExternalPackages: ['bcryptjs', '@google/genai', '@neondatabase/serverless'],
   },
   images: {
     remotePatterns: [
