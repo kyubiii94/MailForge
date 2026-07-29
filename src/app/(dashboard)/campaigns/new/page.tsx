@@ -53,7 +53,12 @@ export default function NewCampaignPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setServerError(data.error || 'Erreur lors de la création.');
+        const fieldMsg =
+          data?.errors?.fieldErrors &&
+          Object.values(data.errors.fieldErrors as Record<string, string[]>)
+            .flat()
+            .filter(Boolean)[0];
+        setServerError(data.error || fieldMsg || 'Erreur lors de la création.');
         return;
       }
       router.push(`/campaigns/${data.campaign.id}`);

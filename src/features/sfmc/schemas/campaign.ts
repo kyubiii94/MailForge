@@ -25,8 +25,8 @@ export const createCampaignSchema = z.object({
   brief: z
     .string()
     .max(2000, 'Brief trop long (2000 caractères max)')
-    .default('')
-    .transform((s) => s.trim()),
+    .optional()
+    .transform((s) => (s ?? '').trim()),
 });
 
 export const moduleInstanceSchema = z.object({

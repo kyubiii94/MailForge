@@ -58,7 +58,17 @@ export const SELOGER_BASE_PROFILE: AmpscriptProfile = {
   cloudPageUnsubId: 162,
   preferenceCenter: true,
   geoLookup: false,
-  links: [],
+  links: [
+    {
+      var: 'heroLink',
+      expression: 'CONCAT("https://www.seloger.com/?", @utmTracking)',
+    },
+    {
+      var: 'articleLink',
+      expression:
+        'CONCAT("https://edito.seloger.com/?", @utmTracking, "&utm_content=article")',
+    },
+  ],
 };
 
 /** Clone un profil pour permettre des variantes sans muter la constante. */
